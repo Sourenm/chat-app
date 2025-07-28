@@ -3,3 +3,8 @@ uvicorn
 transformers
 torch
 httpx
+mlx
+mlx-vlm
+mlx-lm
+Pillow
+requests

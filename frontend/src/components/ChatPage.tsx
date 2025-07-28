@@ -20,6 +20,7 @@ export default function ChatPage({
   text,
   debouncedText,
   supports,
+  model,
 }) {
   const [image, setImage] = useState(null);
   const [imageModalOpen, setImageModalOpen] = useState(false);
@@ -111,6 +112,7 @@ export default function ChatPage({
         text={text}
         debouncedText={debouncedText}
         supports={supports}
+        model={model}
       />
 
       <Modal open={imageModalOpen} onClose={() => setImageModalOpen(false)}>

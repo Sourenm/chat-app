@@ -47,6 +47,7 @@ export default function ChatSubmit({
   text,
   debouncedText,
   supports,
+  model,
 }) {
   const [inputValue, setInputValue] = useState('');
   const [image, setImage] = useState<File | null>(null);
@@ -187,7 +188,7 @@ export default function ChatSubmit({
             }}
             endDecorator={
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                {supports?.includes('multimodal') && <AttachImageButton />}
+                {model === 'mlx-community/Qwen2-VL-2B-Instruct-4bit' && <AttachImageButton />}
                 <Typography level="body-xs">
                   {text !== debouncedText ? (
                     <CircularProgress size="sm" />
