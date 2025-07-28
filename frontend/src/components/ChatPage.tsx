@@ -36,7 +36,7 @@ export default function ChatPage({
   const regenerateLastMessage = () => {
     const lastMessage = chats[chats.length - 2];
     setChats((c) => c.slice(0, -2));
-    sendNewMessageToLLM(lastMessage.t);
+    sendNewMessageToLLM(lastMessage.t, lastMessage.image, model);
   };
 
   return (

@@ -8,13 +8,14 @@ export default function Interact({ supports }) {
   const [isThinking, setIsThinking] = useState(false);
   const [model, setModel] = useState("meta-llama/Llama-3.2-1B-Instruct"); // 👈 default model
 
-  const sendNewMessageToLLM = async (text: string, image?: string) => {
+  const sendNewMessageToLLM = async (text: string, image?: string, selectedModel?: string) => {
     const userMessage = {
       t: text,
       user: 'human',
       key: Math.random().toString(36).substring(2),
       image,
     };
+
     const updatedChats = [...chats, userMessage];
     setChats(updatedChats);
     setIsThinking(true);
@@ -37,14 +38,18 @@ export default function Interact({ supports }) {
       messages.push({ role: 'user', content: text });
     }
 
-    const responseText = await sendToBackend(messages, model, image); // ✅ pass model + image
-
+    const responseText = await sendToBackend(messages, selectedModel || model, image);
+    console.log(selectedModel)
     const botMessage = {
       t: responseText,
       user: 'bot',
       key: Math.random().toString(36).substring(2),
     };
     setChats((prev) => [...prev, botMessage]);
+    setTimeout(() => {
+      document.getElementById('endofchat')?.scrollIntoView({ behavior: 'smooth' });
+    }, 0);
+
     setIsThinking(false);
   };
 

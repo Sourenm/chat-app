@@ -2,6 +2,7 @@ import subprocess
 import socket
 import time
 import os
+import json
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastchat_openai_api import chat_completion
@@ -74,4 +75,13 @@ async def startup_event():
 @app.post("/v1/chat/completions")
 async def chat_endpoint(request: Request):
     print("📥 Received /v1/chat/completions POST request")
+    body_bytes = await request.body()
+    try:
+        body_json = json.loads(body_bytes)
+        print("📦 Request body JSON:")
+        for k, v in body_json.items():
+            print(f"  - {k}: {v}")
+    except Exception as e:
+        print(f"⚠️ Failed to parse body: {e}")
+        print(f"Raw body: {body_bytes.decode('utf-8', errors='replace')}")    
     return await chat_completion(request)

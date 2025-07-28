@@ -14,16 +14,16 @@ async def chat_completion(request: Request):
         payload = await request.json()
 
         model_name = payload.get("model", "meta-llama/Llama-3.2-1B-Instruct")
+        print(f"Got Model: {model_name}")
         port = MODEL_PORTS.get(model_name)
 
         if not port:
             return JSONResponse(status_code=400, content={"error": f"Unknown model: {model_name}"})
 
         model_url = f"http://localhost:{port}/worker_generate"
-
+        print(f"Forwarding to model worker at {model_url}")
         # Extract the chat messages
         messages = payload.get("messages", [])
-        print(f"🔍 MESSAGES: {messages}")
 
         if not messages:
             return JSONResponse(status_code=400, content={"error": "No messages provided"})
@@ -32,11 +32,17 @@ async def chat_completion(request: Request):
         for m in messages:
             if m["role"] == "system":
                 prompt += f"<|system|>\n{m['content']}\n"
-            elif m["role"] == "user":
-                prompt += f"<|user|>\n{m['content']}\n"
             elif m["role"] == "assistant":
                 prompt += f"<|assistant|>\n{m['content']}\n"
-        prompt += "<|assistant|>\n"  # Let model complete this part
+            elif m["role"] == "user":
+                content = m["content"]
+                if isinstance(content, list):
+                    # Multimodal format
+                    text_parts = [part["text"] for part in content if part["type"] == "text"]
+                    prompt += f"<|user|>\n{''.join(text_parts)}\n"
+                else:
+                    prompt += f"<|user|>\n{content}\n"
+        prompt += "<|assistant|>\n"
 
         # Prepare payload for the model worker
         worker_payload = {

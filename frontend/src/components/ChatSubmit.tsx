@@ -59,7 +59,7 @@ export default function ChatSubmit({
   const handleSend = () => {
     if (!inputValue.trim()) return;
     scrollChatToBottom();
-    addMessage(inputValue.trim(), imageLink);
+    addMessage(inputValue.trim(), imageLink, model);
     setInputValue('');
     setImageLink(null);
     setTimeout(() => {
