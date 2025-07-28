@@ -1,8 +1,17 @@
 # 🧠 Chat App (Electron + React + FastAPI + Hugging Face)
 
-This is a lightweight full-stack AI chat application with a modern **Electron + React + MUI frontend** and a **FastAPI + Hugging Face backend**. It supports natural language conversation with Meta’s LLaMA-3.2-1B-Instruct model and runs natively with Apple Silicon–optimized MPS inference.
+This is a lightweight full-stack AI chat application with a modern **Electron + React + MUI frontend** and a **FastAPI + Hugging Face backend**. It supports natural language conversation (text inputs) with Meta’s LLaMA-3.2-1B-Instruct model and multimodal conversation (text+image inputs) with MLX Community's Qwen2-VL-2B model. This project runs natively with Apple Silicon–optimized MPS inference.
 
 ---
+
+## Supported Models
+
+This app supports both text-only and multimodal (image + text) inference:
+
+| Model                             | Type       | Notes                                  |
+|----------------------------------|------------|----------------------------------------|
+| meta-llama/Llama-3.2-1B-Instruct | Text-only  | Lightweight, fast local inference      |
+| mlx-community/Qwen2-VL-2B        | Multimodal | Supports image + text joint reasoning  |
 
 ## ✨ Features
 
@@ -28,6 +37,7 @@ chat-app/
 │   ├── api.py
 │   ├── fastchat_openai_api.py
 │   ├── model_worker.py
+│   ├── model_worker_qwen.py
 │   └── requirements.txt
 └── frontend/
     ├── public/
@@ -40,6 +50,8 @@ chat-app/
     ├── vite.config.ts
     ├── package.json
     └── tsconfig.json
+    └── tsconfig.node.json    
+    └── tsconfig.app.json    
 ```
 
 ---
@@ -88,11 +100,17 @@ npm run build
 
 ---
 
+## UI
+
+- A model selector dropdown at the top allows switching between available models.
+- Supports attaching images (from file or URL) for multimodal prompts.
+- Automatically scrolls to the latest message after assistant responses.
+
 ## 📝 API
 
 **POST** `/v1/chat/completions`
 
-Request:
+Request sample:
 ```json
 {
   "model": "meta-llama/Llama-3.2-1B-Instruct",
@@ -124,31 +142,21 @@ Response:
 }
 ```
 
----
-
-## 🧠 Model Notes
-
-- Using `transformers.pipeline("text-generation")`
-- Automatically truncates responses after first "###" to avoid long rambling completions
-- Uses an instruction-tuned prompt format like:
-
-```
-### Instruction:
-<your message here>
-
-### Response:
-```
-
----
-
 ## 📦 Dependencies
 
 ### Backend
+
+- Multimodal prompts are parsed safely: base64 image data is extracted and excluded from tokenized text.
+- Prompts are truncated before formatting to respect model limits (32768 tokens).
+- Backend routes are model-aware and extract text + image cleanly.
+
 - `fastapi`
 - `uvicorn`
 - `transformers`
 - `torch`
 - `httpx`
+- `mlx`
+- `mlx-vlm`
 
 ### Frontend
 - `react`, `react-dom`
