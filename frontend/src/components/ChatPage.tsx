@@ -20,6 +20,7 @@ export default function ChatPage({
   text,
   debouncedText,
   supports,
+  model,
 }) {
   const [image, setImage] = useState(null);
   const [imageModalOpen, setImageModalOpen] = useState(false);
@@ -35,7 +36,7 @@ export default function ChatPage({
   const regenerateLastMessage = () => {
     const lastMessage = chats[chats.length - 2];
     setChats((c) => c.slice(0, -2));
-    sendNewMessageToLLM(lastMessage.t);
+    sendNewMessageToLLM(lastMessage.t, lastMessage.image, model);
   };
 
   return (
@@ -111,6 +112,7 @@ export default function ChatPage({
         text={text}
         debouncedText={debouncedText}
         supports={supports}
+        model={model}
       />
 
       <Modal open={imageModalOpen} onClose={() => setImageModalOpen(false)}>

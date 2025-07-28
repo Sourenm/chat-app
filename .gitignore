@@ -1,0 +1,104 @@
+# -------------------------------
+# 🔒 General
+# -------------------------------
+*.log
+*.env
+*.env.*
+.envrc
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+*.swo
+*.bak
+
+# -------------------------------
+# 📦 Node (Frontend or Electron)
+# -------------------------------
+frontend/node_modules/
+node_modules/
+dist/
+build/
+coverage/
+.npm/
+.yarn/
+.pnpm-store/
+vite.config.ts.backup*
+
+# Vite/Next.js specific cache
+.vite/
+.next/
+
+# Electron cache
+.electron/
+
+# Optional: lockfiles (uncomment only if you're not using them for reproducibility)
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
+
+# -------------------------------
+# 🐍 Python (Backend)
+# -------------------------------
+__pycache__/
+*.py[cod]
+*.so
+*.pyd
+*.egg-info/
+.eggs/
+venv/
+env/
+ENV/
+.mypy_cache/
+.dmypy.json
+.pytest_cache/
+.pyre/
+
+# SQLite/DB artifacts
+*.sqlite3
+*.db
+*.db-wal
+*.db-shm
+
+# Jupyter Notebooks
+.ipynb_checkpoints/
+
+# -------------------------------
+# 🐳 Docker (optional)
+# -------------------------------
+*.tar
+*.img
+*.pid
+*.sock
+
+# -------------------------------
+# 🔐 Secrets & Credentials
+# -------------------------------
+secrets.*
+credentials.*
+auth.json
+
+# -------------------------------
+# 🧪 Test Artifacts
+# -------------------------------
+coverage.xml
+*.lcov
+htmlcov/
+pytest-debug.log
+.nox/
+.tox/
+
+# -------------------------------
+# 📦 Misc
+# -------------------------------
+*.zip
+*.tar.gz
+*.tgz
+*.rar
+*.7z
+
+# -------------------------------
+# 🧠 VS Code Workspace (optional)
+# -------------------------------
+*.code-workspace

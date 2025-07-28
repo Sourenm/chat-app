@@ -3,15 +3,27 @@ from fastapi import Request
 from fastapi.responses import JSONResponse
 import traceback
 
-MODEL_WORKER_URL = "http://localhost:21002/worker_generate"
+# Port mapping for each supported model
+MODEL_PORTS = {
+    "meta-llama/Llama-3.2-1B-Instruct": 21002,
+    "mlx-community/Qwen2-VL-2B-Instruct-4bit": 21003,
+}
 
 async def chat_completion(request: Request):
     try:
         payload = await request.json()
 
-        # Extract the last user message
+        model_name = payload.get("model", "meta-llama/Llama-3.2-1B-Instruct")
+        print(f"Got Model: {model_name}")
+        port = MODEL_PORTS.get(model_name)
+
+        if not port:
+            return JSONResponse(status_code=400, content={"error": f"Unknown model: {model_name}"})
+
+        model_url = f"http://localhost:{port}/worker_generate"
+        print(f"Forwarding to model worker at {model_url}")
+        # Extract the chat messages
         messages = payload.get("messages", [])
-        print(f"🔍 MESSAGES: {messages}")
 
         if not messages:
             return JSONResponse(status_code=400, content={"error": "No messages provided"})
@@ -20,22 +32,39 @@ async def chat_completion(request: Request):
         for m in messages:
             if m["role"] == "system":
                 prompt += f"<|system|>\n{m['content']}\n"
-            elif m["role"] == "user":
-                prompt += f"<|user|>\n{m['content']}\n"
             elif m["role"] == "assistant":
                 prompt += f"<|assistant|>\n{m['content']}\n"
-        prompt += "<|assistant|>\n"  # Let model complete this part
+            elif m["role"] == "user":
+                content = m["content"]
+                if isinstance(content, list):
+                    # Multimodal format
+                    text_parts = [part["text"] for part in content if part["type"] == "text"]
+                    prompt += f"<|user|>\n{''.join(text_parts)}\n"
+                else:
+                    prompt += f"<|user|>\n{content}\n"
+        prompt += "<|assistant|>\n"
 
-
+        # Prepare payload for the model worker
         worker_payload = {
             "prompt": prompt,
             "temperature": payload.get("temperature", 0.7),
             "top_p": payload.get("top_p", 1.0),
             "max_new_tokens": payload.get("max_tokens", 512),
         }
+
+        # Include image URL for multimodal models (QWEN-style)
+        if model_name == "mlx-community/Qwen2-VL-2B-Instruct-4bit":
+            for m in messages:
+                if isinstance(m["content"], list):
+                    for item in m["content"]:
+                        if item["type"] == "image_url":
+                            worker_payload["image"] = item["image_url"]
+                            break
+
+        # Send to selected model worker
         timeout = httpx.Timeout(60.0)
         async with httpx.AsyncClient(timeout=timeout) as client:
-            response = await client.post(MODEL_WORKER_URL, json=worker_payload)
+            response = await client.post(model_url, json=worker_payload)
             response.raise_for_status()
             result = response.json()
 
