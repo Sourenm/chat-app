@@ -1,13 +1,13 @@
 # diffusion_worker.py
 
-import subprocess
+import asyncio
 import base64
 import uuid
 import os
 
 TXT2IMG_SCRIPT = "/Users/sourena/Downloads/chat-app/mlx-examples/stable_diffusion/txt2image.py"
 
-def generate_image(prompt: str) -> str:
+async def generate_image(prompt: str) -> str:
     output_path = f"/tmp/{uuid.uuid4().hex}.png"
 
     command = [
@@ -20,18 +20,17 @@ def generate_image(prompt: str) -> str:
         print(f"🚀 Running txt2image.py with prompt: {prompt}")
         print(f"🧾 Command: {' '.join(command)}")
 
-        result = subprocess.run(
-            command,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            text=True,
-            check=False  # So we can handle the error ourselves
+        process = await asyncio.create_subprocess_exec(
+            *command,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE
         )
+        stdout, stderr = await process.communicate()
 
-        if result.returncode != 0:
+        if process.returncode != 0:
             print("❌ Subprocess failed:")
-            print(result.stderr)
-            raise RuntimeError(f"txt2image.py failed with code {result.returncode}: {result.stderr}")
+            print(stderr)
+            raise RuntimeError(f"txt2image.py failed with code {process.returncode}: {stderr}")
 
         if not os.path.exists(output_path):
             raise RuntimeError("Expected output image file was not created.")
