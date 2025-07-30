@@ -6,6 +6,9 @@ import json
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastchat_openai_api import chat_completion
+from pydantic import BaseModel
+from diffusion_worker import generate_image
+
 
 app = FastAPI()
 
@@ -28,6 +31,10 @@ MODEL_WORKERS = {
         "script": "model_worker_qwen.py"
     }
 }
+
+class DiffusionInput(BaseModel):
+    prompt: str
+
 
 def is_port_open(host: str, port: int) -> bool:
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
@@ -85,3 +92,9 @@ async def chat_endpoint(request: Request):
         print(f"⚠️ Failed to parse body: {e}")
         print(f"Raw body: {body_bytes.decode('utf-8', errors='replace')}")    
     return await chat_completion(request)
+
+@app.post("/diffusion/generate")
+async def diffusion_generate(req: DiffusionInput):
+    print(f"🧠 Received prompt: {req.prompt}", flush=True)
+    image_url = generate_image(req.prompt)
+    return { "image_url": image_url }

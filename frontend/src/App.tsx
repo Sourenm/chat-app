@@ -1,5 +1,5 @@
-import Interact from './components/Interact';
+import MainTabs from './components/MainTabs';
 
 export default function App() {
-  return <Interact supports={['chat']} />;
+  return <MainTabs supports={['chat']} />;
 }
