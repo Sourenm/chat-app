@@ -52,7 +52,12 @@ export default function MainTabs({ supports }) {
     <Box sx={{ width: '100vw', height: '100vh', display: 'flex', flexDirection: 'column' }}>
       <Box sx={{ p: 1, borderBottom: '1px solid #ccc', display: 'flex', alignItems: 'center' }}>
         <Typography sx={{ mr: 1 }}>Model:</Typography>
-        <Select value={model} onChange={(_, value) => value && setModel(value)} sx={{ minWidth: 300 }}>
+        <Select
+          value={model}
+          onChange={(_, value) => value && setModel(value)}
+          sx={{ minWidth: 300 }}
+          disabled={tabIndex === 1} // 👈 disables selector when Diffusion tab is active
+        >
           <Option value="meta-llama/Llama-3.2-1B-Instruct">📝 LLaMA 3.2 1B</Option>
           <Option value="mlx-community/Qwen2-VL-2B-Instruct-4bit">🖼️ QWEN2 VL 2B</Option>
         </Select>
