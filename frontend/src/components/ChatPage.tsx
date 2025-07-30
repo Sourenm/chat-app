@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   Sheet,
   Stack,
@@ -24,6 +24,7 @@ export default function ChatPage({
 }) {
   const [image, setImage] = useState(null);
   const [imageModalOpen, setImageModalOpen] = useState(false);
+  const scrollRef = useRef<HTMLDivElement>(null); // NEW
 
   const deleteChat = (key) => {
     setChats((c) => c.filter((chat) => chat.key !== key));
@@ -39,6 +40,16 @@ export default function ChatPage({
     sendNewMessageToLLM(lastMessage.t, lastMessage.image, model);
   };
 
+  // ✅ Scroll to bottom when chats or thinking change
+  useEffect(() => {
+    const container = scrollRef.current;
+    if (container) {
+      requestAnimationFrame(() => {
+        container.scrollTop = container.scrollHeight;
+      });
+    }
+  }, [chats, isThinking]);
+
   return (
     <Sheet
       sx={{
@@ -47,13 +58,14 @@ export default function ChatPage({
         width: '100%',
         height: '100%',
         overflow: 'hidden',
-        gap: 2,
       }}
     >
+      {/* ✅ Scrollable chat area with ref */}
       <Sheet
+        ref={scrollRef}
         sx={{
           flex: 1,
-          overflow: 'auto',
+          overflowY: 'auto',
           padding: 1,
           display: 'flex',
           flexDirection: 'column',
@@ -100,9 +112,9 @@ export default function ChatPage({
             pos="bot"
           />
         </Stack>
-        <div id="endofchat" />
       </Sheet>
 
+      {/* Chat input */}
       <ChatSubmit
         addMessage={sendNewMessageToLLM}
         stopStreaming={stopStreaming}
@@ -115,19 +127,19 @@ export default function ChatPage({
         model={model}
       />
 
+      {/* Image preview */}
       <Modal open={imageModalOpen} onClose={() => setImageModalOpen(false)}>
         <ModalDialog
-        sx={{
-        display: 'flex',
-        flexDirection: 'column',
-        width: '100%',
-        maxWidth: '100vw',
-        height: '100%',
-        boxSizing: 'border-box',
-        overflow: 'hidden',
-        gap: 2,
-        }}
-
+          sx={{
+            display: 'flex',
+            flexDirection: 'column',
+            width: '100%',
+            maxWidth: '100vw',
+            height: '100%',
+            boxSizing: 'border-box',
+            overflow: 'hidden',
+            gap: 2,
+          }}
         >
           <Box
             component="img"
