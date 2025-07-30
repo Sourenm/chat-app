@@ -8,3 +8,5 @@ mlx-vlm
 mlx-lm
 Pillow
 requests
+sentencepiece
+protobuf
