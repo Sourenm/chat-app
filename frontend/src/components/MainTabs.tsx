@@ -1,4 +1,3 @@
-// MainTabs.tsx
 import { Box, Select, Option, Typography, Tabs, TabList, Tab, TabPanel } from '@mui/joy';
 import { useState } from 'react';
 import ChatPage from './ChatPage';
@@ -41,53 +40,54 @@ export default function MainTabs({ supports }) {
       key: Math.random().toString(36).substring(2),
     };
     setChats((prev) => [...prev, botMessage]);
-    setTimeout(() => {
-      document.getElementById('endofchat')?.scrollIntoView({ behavior: 'smooth' });
-    }, 0);
 
     setIsThinking(false);
   };
 
   return (
     <Box sx={{ width: '100vw', height: '100vh', display: 'flex', flexDirection: 'column' }}>
-      <Box sx={{ p: 1, borderBottom: '1px solid #ccc', display: 'flex', alignItems: 'center' }}>
+      {/* Fixed top bar */}
+      <Box sx={{ p: 1, borderBottom: '1px solid #ccc', display: 'flex', alignItems: 'center', flexShrink: 0 }}>
         <Typography sx={{ mr: 1 }}>Model:</Typography>
         <Select
           value={model}
           onChange={(_, value) => value && setModel(value)}
           sx={{ minWidth: 300 }}
-          disabled={tabIndex === 1} // 👈 disables selector when Diffusion tab is active
+          disabled={tabIndex === 1}
         >
           <Option value="meta-llama/Llama-3.2-1B-Instruct">📝 LLaMA 3.2 1B</Option>
           <Option value="mlx-community/Qwen2-VL-2B-Instruct-4bit">🖼️ QWEN2 VL 2B</Option>
         </Select>
       </Box>
 
-      <Tabs value={tabIndex} onChange={(_, v) => setTabIndex(v)} sx={{ flex: 1 }}>
-        <TabList>
-          <Tab>Interact</Tab>
-          <Tab>Diffusion</Tab>
-        </TabList>
+      {/* Main panel */}
+      <Box sx={{ flex: 1, minHeight: 0, overflow: 'hidden' }}>
+        <Tabs value={tabIndex} onChange={(_, v) => setTabIndex(v)} sx={{ height: '100%' }}>
+          <TabList>
+            <Tab>Interact</Tab>
+            <Tab>Diffusion</Tab>
+          </TabList>
 
-        <TabPanel value={0} sx={{ height: '100%' }}>
-          <ChatPage
-            chats={chats}
-            setChats={setChats}
-            isThinking={isThinking}
-            sendNewMessageToLLM={sendNewMessageToLLM}
-            stopStreaming={() => setIsThinking(false)}
-            tokenCount={{}}
-            text=""
-            debouncedText=""
-            supports={supports}
-            model={model}
-          />
-        </TabPanel>
+          <TabPanel value={0} sx={{ height: '100%', overflow: 'hidden', p: 0 }}>
+            <ChatPage
+              chats={chats}
+              setChats={setChats}
+              isThinking={isThinking}
+              sendNewMessageToLLM={sendNewMessageToLLM}
+              stopStreaming={() => setIsThinking(false)}
+              tokenCount={{}}
+              text=""
+              debouncedText=""
+              supports={supports}
+              model={model}
+            />
+          </TabPanel>
 
-        <TabPanel value={1} sx={{ height: '100%' }}>
-          <DiffusionPage />
-        </TabPanel>
-      </Tabs>
+          <TabPanel value={1} sx={{ height: '100%', overflow: 'auto' }}>
+            <DiffusionPage />
+          </TabPanel>
+        </Tabs>
+      </Box>
     </Box>
   );
 }
