@@ -26,7 +26,7 @@ This app supports text-only, multimodal (image + text), and image generation (di
 - Built with **Vite**, **TypeScript**, **MUI + Joy UI**
 - Electron desktop app with full-width tabbed interface
 - Supports sending **text** and **image + text** inputs
-- Includes a **Diffusion tab** for generating images from prompts
+- Includes a **Diffusion tab** for generating and saving images from prompts
 - Communicates via OpenAI-compatible `/v1/chat/completions` and `/diffusion/generate` endpoints
 
 ### ✅ Backend (FastAPI + Hugging Face + MLX)
@@ -129,11 +129,12 @@ npm run build
 
 ## 🖥️ UI
 
-- A model selector dropdown at the top allows switching between available models.
+- A model selector dropdown at the top allows switching between available models (disabled in Diffusion tab).
 - **Tab-based interface** with:
   - `Interact` tab for text and multimodal chat
+    - Supports attaching images (from file or URL) for multimodal prompts.
   - `Diffusion` tab for generating images from prompts
-- Supports attaching images (from file or URL) for multimodal prompts.
+    - Includes a **Save Image** button in the Diffusion tab to download generated images as PNG files.
 - Automatically scrolls to the latest message after assistant responses.
 - Displays base64-rendered images returned by the diffusion backend.
 
