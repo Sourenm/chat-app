@@ -1,32 +1,46 @@
 # 🧠 Chat App (Electron + React + FastAPI + Hugging Face)
 
-This is a lightweight full-stack AI chat application with a modern **Electron + React + MUI frontend** and a **FastAPI + Hugging Face backend**. It supports natural language conversation (text inputs) with Meta’s LLaMA-3.2-1B-Instruct model and multimodal conversation (text+image inputs) with MLX Community's Qwen2-VL-2B model. This project runs natively with Apple Silicon–optimized MPS inference.
+This is a lightweight full-stack AI chat application with a modern **Electron + React + MUI frontend** and a **FastAPI + Hugging Face + MLX backend**. It supports:
+
+- 🧠 Natural language conversation using Meta’s **LLaMA-3.2-1B-Instruct** model  
+- 🖼️ Multimodal (text + image) understanding with MLX Community’s **Qwen2-VL-2B** model  
+- 🎨 **Image generation (diffusion)** using **Stable Diffusion XL (SDXL)** via Apple’s **MLX** framework  
+
+This project is fully optimized for **Apple Silicon** with native MPS-backed inference.
 
 ---
 
 ## Supported Models
 
-This app supports both text-only and multimodal (image + text) inference:
+This app supports text-only, multimodal (image + text), and image generation (diffusion) inference:
 
-| Model                             | Type       | Notes                                  |
-|----------------------------------|------------|----------------------------------------|
-| meta-llama/Llama-3.2-1B-Instruct | Text-only  | Lightweight, fast local inference      |
-| mlx-community/Qwen2-VL-2B        | Multimodal | Supports image + text joint reasoning  |
+| Model                               | Type         | Notes                                             |
+|------------------------------------|--------------|---------------------------------------------------|
+| meta-llama/Llama-3.2-1B-Instruct   | Text-only    | Lightweight, fast local inference                 |
+| mlx-community/Qwen2-VL-2B          | Multimodal   | Supports image + text joint reasoning             |
+| Stable Diffusion XL (via MLX)      | Diffusion    | Generates high-quality images from text prompts   |
 
 ## ✨ Features
 
 ### ✅ Frontend (Electron + React)
 - Built with **Vite**, **TypeScript**, **MUI + Joy UI**
-- Electron desktop app with full-width chat interface
-- Supports sending **text** inputs
-- Communicates via OpenAI-compatible `/v1/chat/completions` endpoint
+- Electron desktop app with full-width tabbed interface
+- Supports sending **text** and **image + text** inputs
+- Includes a **Diffusion tab** for generating images from prompts
+- Communicates via OpenAI-compatible `/v1/chat/completions` and `/diffusion/generate` endpoints
 
-### ✅ Backend (FastAPI + Hugging Face)
-- **FastAPI** server with CORS and `/v1/chat/completions`
-- Automatically launches `model_worker.py` on startup
-- Model runs with **`transformers.pipeline`** on **MPS (Apple Silicon)** or CPU
-- Outputs OpenAI-style responses with token usage
+### ✅ Backend (FastAPI + Hugging Face + MLX)
+- **FastAPI** server with CORS, hosting both chat and diffusion APIs
+- Automatically launches model workers (`model_worker.py`, `model_worker_qwen.py`) on startup
+- Text + multimodal models use **`transformers.pipeline`** on **MPS (Apple Silicon)** or CPU
+- Diffusion runs locally using **MLX Stable Diffusion XL** via subprocess (`txt2image.py`)
+- Outputs OpenAI-style responses with token usage and returns base64 images from diffusion
 
+### Diffusion
+![Image Diffusion](./gifs/Image_diffusion.gif)
+
+### Multimodal Inference
+![Multimodal Inference](./gifs/multimodal.gif)
 ---
 
 ## 🧱 Folder Structure
@@ -38,6 +52,7 @@ chat-app/
 │   ├── fastchat_openai_api.py
 │   ├── model_worker.py
 │   ├── model_worker_qwen.py
+│   ├── diffusion_worker.py
 │   └── requirements.txt
 └── frontend/
     ├── public/
@@ -67,16 +82,28 @@ source venv/bin/activate
 pip install -r requirements.txt
 ```
 
+#### 🖼️ Enable Image Diffusion (optional but recommended)
+
+To use the Diffusion tab for image generation:
+ - Clone the MLX examples repository:
+ ```
+ git clone https://github.com/ml-explore/mlx-examples.git
+ ```
+ - Open diffusion_worker.py and update this line to match your local path:
+ ```
+ TXT2IMG_SCRIPT = "/absolute/path/to/mlx-examples/stable_diffusion/txt2image.py"
+ ```
+
 Then launch the API with:
 
 ```bash
 uvicorn api:app --host 0.0.0.0 --port 8000
 ```
 
-This will auto-launch `model_worker.py` if it's not already running.
+This will auto-launch `model_worker.py` and `model_worker_qwen.py` if they are not already running.
 
 > 💡 Make sure `torch`, `transformers`, and Apple MPS support are properly installed.
-
+> 🧠 For image diffusion, you'll also need MLX and a Mac with Apple Silicon.
 ---
 
 ### 💻 2. Frontend Setup
@@ -100,17 +127,23 @@ npm run build
 
 ---
 
-## UI
+## 🖥️ UI
 
 - A model selector dropdown at the top allows switching between available models.
+- **Tab-based interface** with:
+  - `Interact` tab for text and multimodal chat
+  - `Diffusion` tab for generating images from prompts
 - Supports attaching images (from file or URL) for multimodal prompts.
 - Automatically scrolls to the latest message after assistant responses.
+- Displays base64-rendered images returned by the diffusion backend.
 
 ## 📝 API
 
-**POST** `/v1/chat/completions`
+### 🔹 POST `/v1/chat/completions`
 
-Request sample:
+Used for LLM inference (text-only and multimodal).
+
+**Request:**
 ```json
 {
   "model": "meta-llama/Llama-3.2-1B-Instruct",
@@ -123,7 +156,7 @@ Request sample:
 }
 ```
 
-Response:
+**Response:**
 ```json
 {
   "choices": [
@@ -142,6 +175,28 @@ Response:
 }
 ```
 
+### 🎨 POST /diffusion/generate
+
+Used for **image generation** via Stable Diffusion XL (SDXL) in MLX.
+
+**Request:**
+```json
+{
+  "prompt": "a futuristic cityscape at sunset"
+}
+```
+
+**Response:**
+```json
+{
+  "image_url": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAA..."
+}
+```
+
+The returned base64 image will be rendered directly inside the frontend.
+
+> 💡 Make sure you've set the TXT2IMG_SCRIPT path correctly and cloned mlx-examples.
+
 ## 📦 Dependencies
 
 ### Backend
@@ -157,6 +212,11 @@ Response:
 - `httpx`
 - `mlx`
 - `mlx-vlm`
+- `mlx-lm`
+- `Pillow`
+- `requests`
+- `sentencepiece`
+- `protobuf`
 
 ### Frontend
 - `react`, `react-dom`
