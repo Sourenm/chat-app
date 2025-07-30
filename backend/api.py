@@ -1,4 +1,4 @@
-import subprocess
+import asyncio
 import socket
 import time
 import os
@@ -11,6 +11,9 @@ from diffusion_worker import generate_image
 
 
 app = FastAPI()
+
+
+model_worker_procs = []
 
 # Allow frontend to talk to us
 app.add_middleware(
@@ -41,14 +44,14 @@ def is_port_open(host: str, port: int) -> bool:
         s.settimeout(1.0)
         return s.connect_ex((host, port)) == 0
 
-def wait_for_port(port: int, retries: int = None, delay: float = 2) -> bool:    
+async def wait_for_port(port: int, retries: int = None, delay: float = 2) -> bool:
     if retries is not None:
         for attempt in range(retries):
             if is_port_open("localhost", port):
                 print(f"✅ Worker is running on port {port}")
                 return True
             print(f"⏳ Waiting for worker on port {port}... (attempt {attempt+1}/{retries})")
-            time.sleep(delay)
+            await asyncio.sleep(delay)
         return False
     else:
         attempt = 0
@@ -56,9 +59,42 @@ def wait_for_port(port: int, retries: int = None, delay: float = 2) -> bool:
             if is_port_open("localhost", port):
                 print(f"✅ Worker is running on port {port}")
                 return True
-            print(f"⏳ Waiting for worker on port {port}... (attempt {attempt+1}/{retries})")
+            print(f"⏳ Waiting for worker on port {port}... (attempt {attempt+1}/∞)")
             attempt += 1
-            time.sleep(delay)
+
+            try:
+                await asyncio.sleep(delay)
+            except asyncio.CancelledError:
+                print("❌ Cancelled during wait_for_port")
+                return False
+
+
+async def launch_worker_and_wait(script: str, port: int):
+    proc = await asyncio.create_subprocess_exec(
+        "python3", script,
+        cwd=os.path.dirname(os.path.abspath(__file__))
+    )
+    model_worker_procs.append(proc)
+
+    try:
+        success = await asyncio.wait_for(wait_for_port(port), timeout=60)
+    except asyncio.TimeoutError:
+        print(f"❌ Timeout: {script} did not start on port {port} in time")
+        proc.terminate()
+        await proc.wait()
+        return
+    except asyncio.CancelledError:
+        print("⛔ Startup cancelled during worker wait!")
+        proc.terminate()
+        await proc.wait()
+        return
+
+    if success:
+        print(f"✅ {script} is ready.")
+    else:
+        print(f"❌ {script} failed to start.")
+
+
 
 @app.on_event("startup")
 async def startup_event():
@@ -66,18 +102,27 @@ async def startup_event():
     for model_name, cfg in MODEL_WORKERS.items():
         port = cfg["port"]
         script = cfg["script"]
+
         if not is_port_open("localhost", port):
             print(f"🔁 Launching {script}...")
-            subprocess.Popen(
-                ["python3", script],
-                cwd=os.path.dirname(os.path.abspath(__file__)),
-            )
-            if not wait_for_port(port):
-                print(f"❌ {script} did not start on port {port}")
-            else:
-                print(f"✅ {script} is ready.")
+
+            # launch in background to prevent blocking startup
+            asyncio.create_task(launch_worker_and_wait(script, port))
         else:
             print(f"✅ {script} already running on port {port}")
+
+
+@app.on_event("shutdown")
+async def shutdown_event():
+    print("🛑 Shutting down model workers...")
+    for proc in model_worker_procs:
+        proc.terminate()
+        try:
+            await asyncio.wait_for(proc.wait(), timeout=5)
+            print("✅ Worker terminated")
+        except asyncio.TimeoutError:
+            print("⚠️ Worker did not terminate in time, killing...")
+            proc.kill()
 
 @app.post("/v1/chat/completions")
 async def chat_endpoint(request: Request):
@@ -96,5 +141,5 @@ async def chat_endpoint(request: Request):
 @app.post("/diffusion/generate")
 async def diffusion_generate(req: DiffusionInput):
     print(f"🧠 Received prompt: {req.prompt}", flush=True)
-    image_url = generate_image(req.prompt)
+    image_url = await generate_image(req.prompt)
     return { "image_url": image_url }
