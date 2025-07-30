@@ -37,7 +37,7 @@ This app supports text-only, multimodal (image + text), and image generation (di
 - Outputs OpenAI-style responses with token usage and returns base64 images from diffusion
 
 ### Diffusion
-![Image Diffusion](./gifs/Image_diffusion.gif)
+![Image Diffusion](./gifs/Image_diffusion_2.gif)
 
 ### Multimodal Inference
 ![Multimodal Inference](./gifs/multimodal.gif)
