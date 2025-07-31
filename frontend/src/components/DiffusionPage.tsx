@@ -1,7 +1,7 @@
 import { useState, useRef } from 'react';
 import { Box, Button, Textarea, Typography, CircularProgress, Stack, IconButton } from '@mui/joy';
 import { generateDiffusionImage } from '../lib/api';
-import { XIcon } from 'lucide-react';
+import { XIcon, Paperclip } from 'lucide-react';
 
 export default function DiffusionPage() {
   const [prompt, setPrompt] = useState('');
@@ -74,9 +74,9 @@ export default function DiffusionPage() {
           Save Image
         </Button>
 
-        <Button onClick={handleImageUpload} variant="soft">
-          Attach Image
-        </Button>
+        <IconButton onClick={handleImageUpload} variant="outlined" color="neutral" title="Attach Image">
+          <Paperclip />
+        </IconButton>
       </Stack>
 
       {attachedImage && (
