@@ -4,7 +4,7 @@ This is a lightweight full-stack AI chat application with a modern **Electron + 
 
 - 🧠 Natural language conversation using Meta’s **LLaMA-3.2-1B-Instruct** model  
 - 🖼️ Multimodal (text + image) understanding with MLX Community’s **Qwen2-VL-2B** model  
-- 🎨 **Image generation (diffusion)** using **Stable Diffusion XL (SDXL)** via Apple’s **MLX** framework  
+- 🎨 **Image generation (text-to-image and image-to-image diffusion)** using **Stable Diffusion XL (SDXL)** via Apple’s **MLX** framework  
 
 This project is fully optimized for **Apple Silicon** with native MPS-backed inference.
 
@@ -18,7 +18,7 @@ This app supports text-only, multimodal (image + text), and image generation (di
 |------------------------------------|--------------|---------------------------------------------------|
 | meta-llama/Llama-3.2-1B-Instruct   | Text-only    | Lightweight, fast local inference                 |
 | mlx-community/Qwen2-VL-2B          | Multimodal   | Supports image + text joint reasoning             |
-| Stable Diffusion XL (via MLX)      | Diffusion    | Generates high-quality images from text prompts   |
+| Stable Diffusion XL (via MLX)      | Diffusion    | Supports text-to-image and image-to-image prompts |
 
 ## ✨ Features
 
@@ -26,7 +26,8 @@ This app supports text-only, multimodal (image + text), and image generation (di
 - Built with **Vite**, **TypeScript**, **MUI + Joy UI**
 - Electron desktop app with full-width tabbed interface
 - Supports sending **text** and **image + text** inputs
-- Includes a **Diffusion tab** for generating and saving images from prompts
+- Includes a **Diffusion tab** for generating and saving images from prompts  
+  - Supports both **text-to-image** and **image-to-image** generation workflows
 - Communicates via OpenAI-compatible `/v1/chat/completions` and `/diffusion/generate` endpoints
 
 ### ✅ Backend (FastAPI + Hugging Face + MLX)
@@ -37,7 +38,11 @@ This app supports text-only, multimodal (image + text), and image generation (di
 - Outputs OpenAI-style responses with token usage and returns base64 images from diffusion
 
 ### Diffusion
-![Image Diffusion](./gifs/Image_diffusion_2.gif)
+#### Using a Reference Image
+![Image2Image Diffusion](./gifs/image2image.gif)
+
+#### Using Prompt Only
+![Text2Image Diffusion](./gifs/Image_diffusion_2.gif)
 
 ### Multimodal Inference
 ![Multimodal Inference](./gifs/multimodal.gif)
@@ -135,6 +140,7 @@ npm run build
     - Supports attaching images (from file or URL) for multimodal prompts.
   - `Diffusion` tab for generating images from prompts
     - Includes a **Save Image** button in the Diffusion tab to download generated images as PNG files.
+    - You can optionally attach a reference image (📎) to guide the generation via **image-to-image diffusion**.
 - Automatically scrolls to the latest message after assistant responses.
 - Displays base64-rendered images returned by the diffusion backend.
 
@@ -178,12 +184,13 @@ Used for LLM inference (text-only and multimodal).
 
 ### 🎨 POST /diffusion/generate
 
-Used for **image generation** via Stable Diffusion XL (SDXL) in MLX.
+Used for **text-to-image** and **image-to-image** generation via Stable Diffusion XL (SDXL) in MLX.
 
 **Request:**
 ```json
 {
-  "prompt": "a futuristic cityscape at sunset"
+  "prompt": "a futuristic cityscape at sunset",
+  "image": "data:image/png;base64,... (optional)"
 }
 ```
 
