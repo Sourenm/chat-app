@@ -6,15 +6,30 @@ import uuid
 import os
 
 TXT2IMG_SCRIPT = "/Users/sourena/Downloads/chat-app/mlx-examples/stable_diffusion/txt2image.py"
+IMG2IMG_SCRIPT = "/Users/sourena/Downloads/chat-app/mlx-examples/stable_diffusion/image2image.py"
 
-async def generate_image(prompt: str) -> str:
+async def generate_image(prompt: str, init_image: str | None = None) -> str:
     output_path = f"/tmp/{uuid.uuid4().hex}.png"
 
-    command = [
-        "python", TXT2IMG_SCRIPT,
-        prompt,
-        "--output", output_path
-    ]
+    if init_image:
+        # Save base64 input image to temp file
+        init_image_path = f"/tmp/{uuid.uuid4().hex}_input.png"
+        with open(init_image_path, "wb") as f:
+            header, encoded = init_image.split(",", 1)
+            f.write(base64.b64decode(encoded))
+
+        command = [
+            "python", IMG2IMG_SCRIPT,
+            init_image_path,
+            prompt,
+            "--output", output_path,
+        ]
+    else:
+        command = [
+            "python", TXT2IMG_SCRIPT,
+            prompt,
+            "--output", output_path
+        ]
 
     try:
         print(f"🚀 Running txt2image.py with prompt: {prompt}")
@@ -42,18 +57,3 @@ async def generate_image(prompt: str) -> str:
     finally:
         if os.path.exists(output_path):
             os.remove(output_path)
-
-
-if __name__ == "__main__":
-    import argparse
-
-    parser = argparse.ArgumentParser()
-    parser.add_argument("prompt", type=str, help="Text prompt to generate an image")
-    args = parser.parse_args()
-
-    try:
-        result = generate_image(args.prompt)
-        print("✅ Image generated successfully.")
-        print(result[:200] + "...")  # print first 200 chars of base64
-    except Exception as e:
-        print("❌ Error:", str(e))

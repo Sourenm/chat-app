@@ -26,8 +26,9 @@ export const sendToBackend = async (
   return data?.choices?.[0]?.message?.content || '';
 };
 
-export async function generateDiffusionImage(prompt: string): Promise<string> {
-  const payload = { prompt };
+export async function generateDiffusionImage(prompt: string, image?: string): Promise<string> {
+  const payload: any = { prompt };
+  if (image) payload.image = image;
 
   const res = await fetch('http://localhost:8000/diffusion/generate', {
     method: 'POST',
@@ -36,18 +37,11 @@ export async function generateDiffusionImage(prompt: string): Promise<string> {
   });
 
   if (!res.ok) {
-    const errText = await res.text();
-    console.error("❌ Diffusion backend error:", errText);
-    throw new Error(`Backend error: ${errText}`);
+    const err = await res.text();
+    throw new Error(`Backend error: ${err}`);
   }
 
   const data = await res.json();
-
-  if (!data.image_url) {
-    console.error("❌ Missing image_url in response:", data);
-    throw new Error("Invalid response from diffusion backend");
-  }
-
   return data.image_url;
 }
 
