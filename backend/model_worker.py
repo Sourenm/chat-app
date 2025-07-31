@@ -5,6 +5,17 @@ import uvicorn
 import torch
 import logging
 import traceback
+import re
+
+def extract_last_assistant_block(text: str) -> str:
+    """
+    Extracts the last `|assistant|` block from the text.
+    """
+    matches = list(re.finditer(r"\|assistant\|\n(.*?)(?=(\n\|user\||\Z))", text, flags=re.DOTALL))
+    if matches:
+        return matches[-1].group(1).strip()
+    return text.strip()  # fallback
+
 
 # --------------------------
 # ✅ Configure Logging
@@ -54,6 +65,8 @@ async def worker_generate(request: Request):
             top_p=top_p,
             max_new_tokens=max_tokens,
         )[0]["generated_text"]
+        
+        output = extract_last_assistant_block(output)
 
         # Handle <|assistant|> repetition manually
         if "<|assistant|>" in output:
