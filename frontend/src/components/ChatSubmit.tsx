@@ -111,7 +111,12 @@ export default function ChatSubmit({
               const file = input.files?.[0];
               if (file) {
                 const reader = new FileReader();
-                reader.onload = (e) => setImageLink(reader.result as string);
+                reader.onload = (e) => {
+                  setImageLink(reader.result as string);
+                  setTimeout(() => {
+                    document.getElementById('chat-input')?.focus();
+                  }, 100);
+                };
                 reader.readAsDataURL(file);
               }
             };
@@ -123,7 +128,14 @@ export default function ChatSubmit({
           </ListItemDecorator>
           From your computer
         </MenuItem>
-        <MenuItem onClick={() => setImageURLModalOpen(true)}>
+        <MenuItem
+          onClick={() => {
+            setImageURLModalOpen(true);
+            setTimeout(() => {
+              document.getElementById('image-url-input')?.focus();
+            }, 100); // allow modal to open before focusing
+          }}
+        >
           <ListItemDecorator>
             <UploadIcon size="20px" />
           </ListItemDecorator>
@@ -231,6 +243,7 @@ export default function ChatSubmit({
           <ModalClose />
           <DialogContent>
             <Input
+              id="image-url-input"
               placeholder="Paste image URL"
               value={imageURLInput}
               onChange={(e) => setImageURLInput(e.target.value)}
@@ -247,6 +260,9 @@ export default function ChatSubmit({
                           setImageLink(reader.result as string);
                           setImageURLModalOpen(false);
                           setImageURLInput('');
+                          setTimeout(() => {
+                            document.getElementById('chat-input')?.focus();
+                          }, 100);
                         };
                         reader.readAsDataURL(blob);
                       } catch {
