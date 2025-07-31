@@ -51,10 +51,16 @@ export default function MainTabs({ supports }) {
         <Typography sx={{ mr: 1 }}>Model:</Typography>
         <Select
           value={model}
-          onChange={(_, value) => value && setModel(value)}
+          onChange={(_, value) => {
+            if (value) {
+              setModel(value);
+              setChats([]); // 🧹 Clear chat history on model change
+            }
+          }}
           sx={{ minWidth: 300 }}
           disabled={tabIndex === 1}
         >
+
           <Option value="meta-llama/Llama-3.2-1B-Instruct">📝 LLaMA 3.2 1B</Option>
           <Option value="mlx-community/Qwen2-VL-2B-Instruct-4bit">🖼️ QWEN2 VL 2B</Option>
         </Select>
