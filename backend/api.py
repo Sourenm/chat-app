@@ -37,6 +37,7 @@ MODEL_WORKERS = {
 
 class DiffusionInput(BaseModel):
     prompt: str
+    image: str | None = None  # base64 string if present
 
 
 def is_port_open(host: str, port: int) -> bool:
@@ -138,8 +139,14 @@ async def chat_endpoint(request: Request):
         print(f"Raw body: {body_bytes.decode('utf-8', errors='replace')}")    
     return await chat_completion(request)
 
+
 @app.post("/diffusion/generate")
 async def diffusion_generate(req: DiffusionInput):
     print(f"🧠 Received prompt: {req.prompt}", flush=True)
-    image_url = await generate_image(req.prompt)
+    if req.image:
+        print("🖼️ Image-to-image mode enabled", flush=True)
+    else:
+        print("📝 Text-to-image mode enabled", flush=True)
+
+    image_url = await generate_image(req.prompt, req.image)
     return { "image_url": image_url }
