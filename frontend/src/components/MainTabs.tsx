@@ -10,9 +10,15 @@ export default function MainTabs({ supports }) {
   const [isThinking, setIsThinking] = useState(false);
   const [model, setModel] = useState("meta-llama/Llama-3.2-1B-Instruct");
 
-  const sendNewMessageToLLM = async (text: string, image?: string, selectedModel?: string) => {
+  const sendNewMessageToLLM = async (
+  visiblePrompt: string,
+  image?: string,
+  selectedModel?: string,
+  fullPromptOverride?: string
+  ) => {
+
     const userMessage = {
-      t: text,
+      t: visiblePrompt,
       user: 'human',
       key: Math.random().toString(36).substring(2),
       image,
@@ -27,11 +33,14 @@ export default function MainTabs({ supports }) {
       content: c.t,
     }));
 
+    const fullPrompt = fullPromptOverride || visiblePrompt;
+
     if (image) {
-      messages.push({ role: 'user', content: [{ type: 'text', text }, { type: 'image_url', image_url: image }] });
+      messages.push({ role: 'user', content: [{ type: 'text', text: fullPrompt }, { type: 'image_url', image_url: image }] });
     } else {
-      messages.push({ role: 'user', content: text });
+      messages.push({ role: 'user', content: fullPrompt });
     }
+
 
     const responseText = await sendToBackend(messages, selectedModel || model, image);
     const botMessage = {

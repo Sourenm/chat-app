@@ -16,6 +16,7 @@
     "@emotion/styled": "^11.14.1",
     "@mui/joy": "^5.0.0-beta.52",
     "lucide-react": "^0.526.0",
+    "pdfjs-dist": "^3.4.120",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
     "react-markdown": "^10.1.0",
