@@ -39,20 +39,26 @@ This app supports text-only, multimodal (image + text), file + text, and image g
 
 ### Diffusion
 #### Using a Reference Image
-![Image2Image Diffusion](./gifs/image2image.gif)
+<div align="center">
+  <img src="./gifs/image2image.gif" alt="Image2Image Diffusion" width="80%" />
+</div>
 
 #### Using Prompt Only
-![Text2Image Diffusion](./gifs/Image_diffusion_2.gif)
+<div align="center">
+  <img src="./gifs/Image_diffusion_2.gif" alt="Text2Image Diffusion" width="80%" />
+</div>
 
 ### Multimodal Inference
-![Multimodal Inference](./gifs/multimodal_2.gif)
+<div align="center">
+  <img src="./gifs/multimodal_2.gif" alt="Multimodal Inference" width="80%" />
+</div>
 
 ### File Attachment (PDF/CSV)
 
 Attach `.pdf` or `.csv` files via the 📁 button.
 
 <div align="center">
-  <img src="./gifs/file_attachment.gif" alt="File Attachment Demo" width="80%" />
+  <img src="./gifs/file_attachment.gif" alt="File Attachment" width="80%" />
 </div>
 
 ---
