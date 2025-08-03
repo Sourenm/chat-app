@@ -2,8 +2,8 @@
 
 This is a lightweight full-stack AI chat application with a modern **Electron + React + MUI frontend** and a **FastAPI + Hugging Face + MLX backend**. It supports:
 
-- 🧠 Natural language conversation using Meta’s **LLaMA-3.2-1B-Instruct** model  
-- 🖼️ Multimodal (text + image) understanding with MLX Community’s **Qwen2-VL-2B** model  
+- 🧠 Natural language conversation using Meta’s **LLaMA-3.2-1B-Instruct** model + **File Attachment**
+- 🖼️ Multimodal (text + image) understanding with MLX Community’s **Qwen2-VL-2B** model + **File Attachment**  
 - 🎨 **Image generation (text-to-image and image-to-image diffusion)** using **Stable Diffusion XL (SDXL)** via Apple’s **MLX** framework  
 
 This project is fully optimized for **Apple Silicon** with native MPS-backed inference.
@@ -12,7 +12,7 @@ This project is fully optimized for **Apple Silicon** with native MPS-backed inf
 
 ## Supported Models
 
-This app supports text-only, multimodal (image + text), and image generation (diffusion) inference:
+This app supports text-only, multimodal (image + text), file + text, and image generation (diffusion) inference:
 
 | Model                               | Type         | Notes                                             |
 |------------------------------------|--------------|---------------------------------------------------|
@@ -25,7 +25,7 @@ This app supports text-only, multimodal (image + text), and image generation (di
 ### ✅ Frontend (Electron + React)
 - Built with **Vite**, **TypeScript**, **MUI + Joy UI**
 - Electron desktop app with full-width tabbed interface
-- Supports sending **text** and **image + text** inputs
+- Supports sending **text**, **image + text**, and **file + text** (attach `.pdf` or `.csv` files)
 - Includes a **Diffusion tab** for generating and saving images from prompts  
   - Supports both **text-to-image** and **image-to-image** generation workflows
 - Communicates via OpenAI-compatible `/v1/chat/completions` and `/diffusion/generate` endpoints
@@ -45,7 +45,16 @@ This app supports text-only, multimodal (image + text), and image generation (di
 ![Text2Image Diffusion](./gifs/Image_diffusion_2.gif)
 
 ### Multimodal Inference
-![Multimodal Inference](./gifs/multimodal.gif)
+![Multimodal Inference](./gifs/multimodal_2.gif)
+
+### File Attachment (PDF/CSV)
+
+Attach `.pdf` or `.csv` files via the 📁 button.
+
+<div align="center">
+  <img src="./gifs/file_attachment.gif" alt="File Attachment Demo" width="80%" />
+</div>
+
 ---
 
 ## 🧱 Folder Structure
@@ -138,6 +147,7 @@ npm run build
 - **Tab-based interface** with:
   - `Interact` tab for text and multimodal chat
     - Supports attaching images (from file or URL) for multimodal prompts.
+    - Supports attaching files (`PDF` or `CSV`)
   - `Diffusion` tab for generating images from prompts
     - Includes a **Save Image** button in the Diffusion tab to download generated images as PNG files.
     - You can optionally attach a reference image (📎) to guide the generation via **image-to-image diffusion**.
