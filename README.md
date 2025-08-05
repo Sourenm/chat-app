@@ -2,9 +2,10 @@
 
 This is a lightweight full-stack AI chat application with a modern **Electron + React + MUI frontend** and a **FastAPI + Hugging Face + MLX backend**. It supports:
 
-- 🧠 Natural language conversation using Meta’s **LLaMA-3.2-1B-Instruct** model + **File Attachment**
-- 🖼️ Multimodal (text + image) understanding with MLX Community’s **Qwen2-VL-2B** model + **File Attachment**  
+- 🧠 Natural language conversation using Meta’s **LLaMA-3.2-1B-Instruct** model  
+- 🖼️ Multimodal (text + image) understanding with MLX Community’s **Qwen2-VL-2B** model  
 - 🎨 **Image generation (text-to-image and image-to-image diffusion)** using **Stable Diffusion XL (SDXL)** via Apple’s **MLX** framework  
+- 🔧 **Fine-tuning support**: Easily fine-tune the LLaMA model on your own datasets using the UI
 
 This project is fully optimized for **Apple Silicon** with native MPS-backed inference.
 
@@ -28,29 +29,31 @@ This app supports text-only, multimodal (image + text), file + text, and image g
 - Supports sending **text**, **image + text**, and **file + text** (attach `.pdf` or `.csv` files)
 - Includes a **Diffusion tab** for generating and saving images from prompts  
   - Supports both **text-to-image** and **image-to-image** generation workflows
+- Supports fine-tuning for the *LLaMA 3.2 1B** model using custom hyper parameters on the selected dataset
 - Communicates via OpenAI-compatible `/v1/chat/completions` and `/diffusion/generate` endpoints
 
 ### ✅ Backend (FastAPI + Hugging Face + MLX)
-- **FastAPI** server with CORS, hosting both chat and diffusion APIs
-- Automatically launches model workers (`model_worker.py`, `model_worker_qwen.py`) on startup
-- Text + multimodal models use **`transformers.pipeline`** on **MPS (Apple Silicon)** or CPU
-- Diffusion runs locally using **MLX Stable Diffusion XL** via subprocess (`txt2image.py`)
-- Outputs OpenAI-style responses with token usage and returns base64 images from diffusion
+- **FastAPI** server with CORS, hosting both chat and diffusion APIs  
+- Automatically launches model workers (`model_worker.py`, `model_worker_qwen.py`) on startup  
+- Text + multimodal models use **`transformers.pipeline`** on **MPS (Apple Silicon)** or CPU  
+- Diffusion runs locally using **MLX Stable Diffusion XL** via subprocess (`txt2image.py`)  
+- Outputs OpenAI-style responses with token usage and returns base64 images from diffusion  
+- 🔧 **New:** Supports **LoRA fine-tuning** of the **LLaMA 3.2 1B** model using custom datasets
 
 ### Diffusion
 #### Using a Reference Image
 <div align="center">
-  <img src="./gifs/image2image.gif" alt="Image2Image Diffusion" width="80%" />
+  <img src="./gifs/image2image_2.gif" alt="Image2Image Diffusion" width="80%" />
 </div>
 
 #### Using Prompt Only
 <div align="center">
-  <img src="./gifs/Image_diffusion_2.gif" alt="Text2Image Diffusion" width="80%" />
+  <img src="./gifs/text2image.gif" alt="Text2Image Diffusion" width="80%" />
 </div>
 
 ### Multimodal Inference
 <div align="center">
-  <img src="./gifs/multimodal_2.gif" alt="Multimodal Inference" width="80%" />
+  <img src="./gifs/multimodal_3.gif" alt="Multimodal Inference" width="80%" />
 </div>
 
 ### File Attachment (PDF/CSV)
@@ -58,7 +61,28 @@ This app supports text-only, multimodal (image + text), file + text, and image g
 Attach `.pdf` or `.csv` files via the 📁 button.
 
 <div align="center">
-  <img src="./gifs/file_attachment.gif" alt="File Attachment" width="80%" />
+  <img src="./gifs/file_attachment_2.gif" alt="File Attachment" width="80%" />
+</div>
+
+
+## 🧠 Fine-Tuning Support (LLaMA 3.2 1B)
+
+You can now **fine-tune the LLaMA model** using custom JSON datasets via the UI:
+
+- Navigate to the `Interact` tab
+- Select **LLaMA 3.2 1B** from the model dropdown
+- Press the **Fine-Tune** button to open the training configuration modal
+- Provide:
+  - Name of the dataset (`.json` file placed under `./backend/datasets`)
+  - Adapter name to save output under `./backend/adapters`
+  - Hyperparameters like learning rate, epochs, and LoRA config (`r`, `alpha`, `dropout`)
+- Once training finishes, the newly trained adapter becomes selectable from the "Adapter" dropdown
+- The adapter will modify LLaMA’s behavior without retraining the entire base model
+
+> This runs `finetune_llama.py` in the backend using Hugging Face Transformers + PEFT (LoRA) + your dataset.
+
+<div align="center">
+  <img src="./gifs/fine_tuning.gif" alt="Fine-tuning LLaMA" width="80%" />
 </div>
 
 ---
@@ -73,6 +97,7 @@ chat-app/
 │   ├── model_worker.py
 │   ├── model_worker_qwen.py
 │   ├── diffusion_worker.py
+│   ├── finetune_llama.py
 │   └── requirements.txt
 └── frontend/
     ├── public/
@@ -150,6 +175,7 @@ npm run build
 ## 🖥️ UI
 
 - A model selector dropdown at the top allows switching between available models (disabled in Diffusion tab).
+- **New:** Fine-tune button opens a configuration modal to train LoRA adapters on custom data (if the **LLaMA 3.2 1B** model is selected)
 - **Tab-based interface** with:
   - `Interact` tab for text and multimodal chat
     - Supports attaching images (from file or URL) for multimodal prompts.
