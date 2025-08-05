@@ -110,4 +110,7 @@ pytest-debug.log
 
 /backend/adapters/*
 !/backend/adapters/.gitkeep
+
+/backend/wandb/*
+/backend/mlruns/*
 # -------------------------------

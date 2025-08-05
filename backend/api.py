@@ -150,6 +150,7 @@ async def chat_endpoint(request: Request):
 
 @app.post("/finetune")
 async def finetune(req: FineTuneRequest):
+    print(f"🛠️ Starting fine-tuning with dataset: {req.dataset_name}, adapter: {req.adapter_name}")
     dataset_path = f"datasets/{req.dataset_name}"
     adapter_path = f"adapters/{req.adapter_name}"
 
@@ -170,6 +171,7 @@ async def finetune(req: FineTuneRequest):
         "--lora_dropout", str(req.lora_dropout),
     )
     await proc.wait()
+    print("✅ Fine-tuning process completed")
     return {"status": "Fine-tuning completed", "adapter_path": adapter_path}
 
 

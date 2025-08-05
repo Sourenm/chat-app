@@ -70,7 +70,7 @@ export async function postFineTune(payload: {
   lora_alpha: number;
   lora_dropout: number;
 }) {
-  const res = await fetch("/finetune", {
+  const res = await fetch("http://localhost:8000/finetune", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload),

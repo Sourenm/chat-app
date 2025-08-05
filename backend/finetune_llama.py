@@ -4,6 +4,8 @@ from peft import get_peft_model, LoraConfig, TaskType
 
 import argparse
 
+print("🚀 Starting finetune_llama.py")
+
 parser = argparse.ArgumentParser()
 parser.add_argument("--base_model")
 parser.add_argument("--train_file")
@@ -15,11 +17,14 @@ parser.add_argument("--lora_alpha", type=int)
 parser.add_argument("--lora_dropout", type=float)
 args = parser.parse_args()
 
-# Load base model and tokenizer
+print(f"📦 Loading base model: {args.base_model}")
 model = AutoModelForCausalLM.from_pretrained(args.base_model)
 tokenizer = AutoTokenizer.from_pretrained(args.base_model)
+if tokenizer.pad_token is None:
+    print("ℹ️ No pad_token found. Setting pad_token = eos_token")
+    tokenizer.pad_token = tokenizer.eos_token
 
-# Apply LoRA
+print("🔧 Applying LoRA configuration")
 peft_config = LoraConfig(
     r=args.lora_r,
     lora_alpha=args.lora_alpha,
@@ -29,17 +34,17 @@ peft_config = LoraConfig(
 )
 model = get_peft_model(model, peft_config)
 
-# Load dataset
+print(f"📂 Loading dataset from: {args.train_file}")
 dataset = load_dataset("json", data_files=args.train_file, split="train")
 
-# Tokenize
+print("🪄 Tokenizing dataset...")
 def tokenize_fn(example):
     return tokenizer(example["text"], truncation=True, padding="max_length")
 
 tokenized = dataset.map(tokenize_fn, batched=True)
 collator = DataCollatorForLanguageModeling(tokenizer, mlm=False)
 
-# Train
+print("🧠 Starting training loop...")
 training_args = TrainingArguments(
     output_dir=args.output_dir,
     per_device_train_batch_size=4,
@@ -49,14 +54,18 @@ training_args = TrainingArguments(
     save_steps=500,
     save_total_limit=2,
 )
+
 trainer = Trainer(
     model=model,
     args=training_args,
     train_dataset=tokenized,
     data_collator=collator,
 )
+
 trainer.train()
 
-# Save adapter
+print(f"💾 Saving adapter to: {args.output_dir}")
 model.save_pretrained(args.output_dir)
 tokenizer.save_pretrained(args.output_dir)
+
+print("✅ Fine-tuning complete.")
