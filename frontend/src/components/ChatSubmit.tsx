@@ -57,6 +57,7 @@ export default function ChatSubmit({
   debouncedText,
   supports,
   model,
+  adapter,
 }) {
   const [inputValue, setInputValue] = useState('');
   const [image, setImage] = useState<File | null>(null);
@@ -83,7 +84,7 @@ export default function ChatSubmit({
       fullPrompt += `\n\n[HERE'S THE CONTENT OF THE ATTACHED FILE]\n${attachedFileText}`;
     }
 
-    addMessage(visiblePrompt, imageLink, model, fullPrompt);  // 👈 pass both prompts
+    addMessage(visiblePrompt, imageLink, model, fullPrompt, adapter);
 
     setAttachedFileText(null);
     setAttachedFileName(null);

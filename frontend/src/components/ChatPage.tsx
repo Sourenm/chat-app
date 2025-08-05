@@ -21,6 +21,7 @@ export default function ChatPage({
   debouncedText,
   supports,
   model,
+  adapter,
 }) {
   const [image, setImage] = useState(null);
   const [imageModalOpen, setImageModalOpen] = useState(false);
@@ -37,7 +38,7 @@ export default function ChatPage({
   const regenerateLastMessage = () => {
     const lastMessage = chats[chats.length - 2];
     setChats((c) => c.slice(0, -2));
-    sendNewMessageToLLM(lastMessage.t, lastMessage.image, model);
+    sendNewMessageToLLM(lastMessage.t, lastMessage.image, model, undefined, adapter);
   };
 
   // ✅ Scroll to bottom when chats or thinking change
@@ -125,7 +126,9 @@ export default function ChatPage({
         debouncedText={debouncedText}
         supports={supports}
         model={model}
+        adapter={adapter}
       />
+
 
       {/* Image preview */}
       <Modal open={imageModalOpen} onClose={() => setImageModalOpen(false)}>

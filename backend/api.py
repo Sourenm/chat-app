@@ -1,14 +1,12 @@
 import asyncio
 import socket
-import time
 import os
 import json
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, Request, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastchat_openai_api import chat_completion
 from pydantic import BaseModel
 from diffusion_worker import generate_image
-
 
 app = FastAPI()
 
@@ -38,6 +36,16 @@ MODEL_WORKERS = {
 class DiffusionInput(BaseModel):
     prompt: str
     image: str | None = None  # base64 string if present
+
+class FineTuneRequest(BaseModel):
+    base_model: str                  # e.g. "meta-llama/Llama-3.2-1B-Instruct"
+    dataset_name: str                # e.g. "alpaca_cleaned.json" (must exist in datasets/)
+    adapter_name: str                # e.g. "llama_alpaca" → will be saved under adapters/
+    num_epochs: int
+    learning_rate: float
+    lora_r: int
+    lora_alpha: int
+    lora_dropout: float
 
 
 def is_port_open(host: str, port: int) -> bool:
@@ -138,6 +146,62 @@ async def chat_endpoint(request: Request):
         print(f"⚠️ Failed to parse body: {e}")
         print(f"Raw body: {body_bytes.decode('utf-8', errors='replace')}")    
     return await chat_completion(request)
+
+
+@app.post("/finetune")
+async def finetune(req: FineTuneRequest):
+    print(f"🛠️ Starting fine-tuning with dataset: {req.dataset_name}, adapter: {req.adapter_name}")
+    dataset_path = f"datasets/{req.dataset_name}"
+    adapter_path = f"adapters/{req.adapter_name}"
+
+    if not os.path.exists(dataset_path):
+        raise HTTPException(status_code=404, detail="Dataset not found")
+
+    os.makedirs(adapter_path, exist_ok=True)
+
+    proc = await asyncio.create_subprocess_exec(
+        "python3", "finetune_llama.py",
+        "--base_model", req.base_model,
+        "--train_file", dataset_path,
+        "--output_dir", adapter_path,
+        "--num_epochs", str(req.num_epochs),
+        "--learning_rate", str(req.learning_rate),
+        "--lora_r", str(req.lora_r),
+        "--lora_alpha", str(req.lora_alpha),
+        "--lora_dropout", str(req.lora_dropout),
+    )
+    await proc.wait()
+    print("✅ Fine-tuning process completed")
+    return {"status": "Fine-tuning completed", "adapter_path": adapter_path}
+
+
+DATASETS_DIR = os.path.join(os.path.dirname(__file__), "datasets")
+
+@app.get("/datasets")
+def list_datasets():
+    print("📂 Listing available datasets...")
+    print(f"  - Looking in: {DATASETS_DIR}")
+    if not os.path.exists(DATASETS_DIR):
+        print("⚠️ Datasets directory does not exist!")
+        return []
+
+    if not os.listdir(DATASETS_DIR):
+        print("⚠️ No datasets found in directory")
+        return []
+
+    print("✅ Found datasets:")
+    for f in os.listdir(DATASETS_DIR):
+        if f.endswith(".json"):
+            print(f"  - {f}")
+
+    # Return only JSON files
+    print("📄 Returning dataset list")
+    return [f for f in os.listdir(DATASETS_DIR) if f.endswith(".json")]
+
+@app.get("/adapters")
+def list_adapters():
+    return [d for d in os.listdir("adapters") if os.path.isdir(os.path.join("adapters", d))]
+
 
 
 @app.post("/diffusion/generate")

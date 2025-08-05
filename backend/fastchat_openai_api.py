@@ -50,6 +50,7 @@ async def chat_completion(request: Request):
             "temperature": payload.get("temperature", 0.7),
             "top_p": payload.get("top_p", 1.0),
             "max_new_tokens": payload.get("max_tokens", 512),
+            "adapter_name": payload.get("adapter_name"),  # ← added
         }
 
         # Include image URL for multimodal models (QWEN-style)
