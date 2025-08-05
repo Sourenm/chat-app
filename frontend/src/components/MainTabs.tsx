@@ -1,7 +1,19 @@
-import { Box, Select, Option, Typography, Tabs, TabList, Tab, TabPanel } from '@mui/joy';
-import { useState } from 'react';
+import {
+  Box,
+  Select,
+  Option,
+  Typography,
+  Tabs,
+  TabList,
+  Tab,
+  TabPanel,
+  Button
+} from '@mui/joy';
+import { useState, useEffect } from 'react';
+import FineTuneModal from './FineTuneModal';
 import ChatPage from './ChatPage';
 import DiffusionPage from './DiffusionPage';
+import { getAdapters } from '../lib/api'; // ✅ Add this
 import { sendToBackend } from '../lib/api';
 
 export default function MainTabs({ supports }) {
@@ -9,6 +21,14 @@ export default function MainTabs({ supports }) {
   const [chats, setChats] = useState([]);
   const [isThinking, setIsThinking] = useState(false);
   const [model, setModel] = useState("meta-llama/Llama-3.2-1B-Instruct");
+  const [adapter, setAdapter] = useState<string | null>(null);
+  const [adapters, setAdapters] = useState<string[]>([]);
+  const [modalOpen, setModalOpen] = useState(false);
+
+  useEffect(() => {
+    getAdapters().then(setAdapters);
+  }, []);
+
 
   const sendNewMessageToLLM = async (
   visiblePrompt: string,
@@ -58,21 +78,36 @@ export default function MainTabs({ supports }) {
       {/* Fixed top bar */}
       <Box sx={{ p: 1, borderBottom: '1px solid #ccc', display: 'flex', alignItems: 'center', flexShrink: 0 }}>
         <Typography sx={{ mr: 1 }}>Model:</Typography>
-        <Select
-          value={model}
-          onChange={(_, value) => {
-            if (value) {
-              setModel(value);
-              setChats([]); // 🧹 Clear chat history on model change
-            }
-          }}
-          sx={{ minWidth: 300 }}
-          disabled={tabIndex === 1}
-        >
-
+        <Select value={model} onChange={(_, value) => {
+          if (value) {
+            setModel(value);
+            setChats([]);
+            setAdapter(null); // clear adapter on model switch
+          }
+        }} sx={{ minWidth: 300 }} disabled={tabIndex === 1}>
           <Option value="meta-llama/Llama-3.2-1B-Instruct">📝 LLaMA 3.2 1B</Option>
           <Option value="mlx-community/Qwen2-VL-2B-Instruct-4bit">🖼️ QWEN2 VL 2B</Option>
         </Select>
+
+        {model === "meta-llama/Llama-3.2-1B-Instruct" && (
+          <>
+            <Select
+              placeholder="Adapter"
+              value={adapter || ""}
+              onChange={(_, value) => setAdapter(value)}
+              sx={{ minWidth: 200, ml: 2 }}
+            >
+              <Option value="">(None)</Option>
+              {adapters.map((a) => (
+                <Option key={a} value={a}>{a}</Option>
+              ))}
+            </Select>
+            <Button size="sm" variant="outlined" sx={{ ml: 2 }} onClick={() => setModalOpen(true)}>
+              Fine-Tune
+            </Button>
+          </>
+        )}
+
       </Box>
 
       {/* Main panel */}
@@ -95,7 +130,13 @@ export default function MainTabs({ supports }) {
               debouncedText=""
               supports={supports}
               model={model}
+              adapter={adapter}
             />
+            <FineTuneModal open={modalOpen} onClose={() => {
+              setModalOpen(false);
+              getAdapters().then(setAdapters); // refresh list after training
+            }} />
+
           </TabPanel>
 
           <TabPanel value={1} sx={{ height: '100%', overflow: 'auto' }}>

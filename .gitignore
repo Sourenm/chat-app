@@ -102,3 +102,12 @@ pytest-debug.log
 # 🧠 VS Code Workspace (optional)
 # -------------------------------
 *.code-workspace
+
+
+# Ignore contents of backend/datasets and backend/adapters
+/backend/datasets/*
+!/backend/datasets/.gitkeep
+
+/backend/adapters/*
+!/backend/adapters/.gitkeep
+# -------------------------------

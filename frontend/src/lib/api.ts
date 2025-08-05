@@ -1,7 +1,8 @@
 export const sendToBackend = async (
   messages: any[],
   model: string,
-  image?: string
+  image?: string,
+  adapter_name?: string
 ) => {
   const payload: any = {
     model,
@@ -11,9 +12,12 @@ export const sendToBackend = async (
     max_tokens: 512,
   };
 
-  // If image is provided, include it
   if (image) {
     payload.image = image;
+  }
+
+  if (adapter_name) {
+    payload.adapter_name = adapter_name;
   }
 
   const res = await fetch('http://localhost:8000/v1/chat/completions', {
@@ -25,6 +29,7 @@ export const sendToBackend = async (
   const data = await res.json();
   return data?.choices?.[0]?.message?.content || '';
 };
+
 
 export async function generateDiffusionImage(prompt: string, image?: string): Promise<string> {
   const payload: any = { prompt };
@@ -45,3 +50,30 @@ export async function generateDiffusionImage(prompt: string, image?: string): Pr
   return data.image_url;
 }
 
+export async function getDatasets() {
+  const res = await fetch("http://localhost:8000/datasets");
+  return res.json();
+}
+
+export async function getAdapters() {
+  const res = await fetch("http://localhost:8000/adapters");
+  return res.json();
+}
+
+export async function postFineTune(payload: {
+  base_model: string;
+  dataset_name: string;
+  adapter_name: string;
+  num_epochs: number;
+  learning_rate: number;
+  lora_r: number;
+  lora_alpha: number;
+  lora_dropout: number;
+}) {
+  const res = await fetch("/finetune", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+  return res.json();
+}
