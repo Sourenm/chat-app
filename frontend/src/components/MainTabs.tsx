@@ -96,13 +96,14 @@ export default function MainTabs({ supports }) {
               value={adapter || ""}
               onChange={(_, value) => setAdapter(value)}
               sx={{ minWidth: 200, ml: 2 }}
+              disabled={tabIndex === 1}
             >
               <Option value="">(None)</Option>
               {adapters.map((a) => (
                 <Option key={a} value={a}>{a}</Option>
               ))}
             </Select>
-            <Button size="sm" variant="outlined" sx={{ ml: 2 }} onClick={() => setModalOpen(true)}>
+            <Button size="sm" variant="outlined" sx={{ ml: 2 }} onClick={() => setModalOpen(true)} disabled={tabIndex === 1}>
               Fine-Tune
             </Button>
           </>
