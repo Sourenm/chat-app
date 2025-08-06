@@ -91,7 +91,7 @@ You can now **fine-tune the LLaMA model** using custom JSON datasets via the UI:
 > This runs `finetune_llama.py` in the backend using Hugging Face Transformers + PEFT (LoRA) + your dataset.
 
 <div align="center">
-  <img src="./gifs/fine_tuning.gif" alt="Fine-tuning LLaMA" width="80%" />
+  <img src="./gifs/fine_tuning_2.gif" alt="Fine-tuning LLaMA" width="80%" />
 </div>
 
 ---
@@ -107,6 +107,7 @@ chat-app/
 │   ├── model_worker_qwen.py
 │   ├── diffusion_worker.py
 │   ├── finetune_llama.py
+│   ├── tts_wrapper.py
 │   └── requirements.txt
 └── frontend/
     ├── public/
