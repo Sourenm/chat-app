@@ -2,10 +2,12 @@
 
 This is a lightweight full-stack AI chat application with a modern **Electron + React + MUI frontend** and a **FastAPI + Hugging Face + MLX backend**. It supports:
 
-- 🧠 Natural language conversation using Meta’s **LLaMA-3.2-1B-Instruct** model  
+- 🧠 Natural language conversation using Meta’s **LLaMA-3.2-1B-Instruct** model
 - 🖼️ Multimodal (text + image) understanding with MLX Community’s **Qwen2-VL-2B** model  
+- 🗂️ **File attachment** for both of the above models
 - 🎨 **Image generation (text-to-image and image-to-image diffusion)** using **Stable Diffusion XL (SDXL)** via Apple’s **MLX** framework  
 - 🔧 **Fine-tuning support**: Easily fine-tune the LLaMA model on your own datasets using the UI
+- 🔈 **Text-To-Speech Generation** from prompts
 
 This project is fully optimized for **Apple Silicon** with native MPS-backed inference.
 
@@ -29,6 +31,7 @@ This app supports text-only, multimodal (image + text), file + text, and image g
 - Supports sending **text**, **image + text**, and **file + text** (attach `.pdf` or `.csv` files)
 - Includes a **Diffusion tab** for generating and saving images from prompts  
   - Supports both **text-to-image** and **image-to-image** generation workflows
+- Inclused a **TTS tab** for generating speech from text
 - Supports fine-tuning for the *LLaMA 3.2 1B** model using custom hyper parameters on the selected dataset
 - Communicates via OpenAI-compatible `/v1/chat/completions` and `/diffusion/generate` endpoints
 
@@ -37,23 +40,29 @@ This app supports text-only, multimodal (image + text), file + text, and image g
 - Automatically launches model workers (`model_worker.py`, `model_worker_qwen.py`) on startup  
 - Text + multimodal models use **`transformers.pipeline`** on **MPS (Apple Silicon)** or CPU  
 - Diffusion runs locally using **MLX Stable Diffusion XL** via subprocess (`txt2image.py`)  
+- TTS runs locally using `tts_models/en/ljspeech/tacotron2-DDC`
 - Outputs OpenAI-style responses with token usage and returns base64 images from diffusion  
-- 🔧 **New:** Supports **LoRA fine-tuning** of the **LLaMA 3.2 1B** model using custom datasets
+- Supports **LoRA fine-tuning** of the **LLaMA 3.2 1B** model using custom datasets
 
 ### Diffusion
 #### Using a Reference Image
 <div align="center">
-  <img src="./gifs/image2image_2.gif" alt="Image2Image Diffusion" width="80%" />
+  <img src="./gifs/image2image_3.gif" alt="Image2Image Diffusion" width="80%" />
 </div>
 
 #### Using Prompt Only
 <div align="center">
-  <img src="./gifs/text2image.gif" alt="Text2Image Diffusion" width="80%" />
+  <img src="./gifs/text2image_2.gif" alt="Text2Image Diffusion" width="80%" />
+</div>
+
+### Text to Speech
+<div align="center">
+  <img src="./gifs/TTS.gif" alt="Text2Image Diffusion" width="80%" />
 </div>
 
 ### Multimodal Inference
 <div align="center">
-  <img src="./gifs/multimodal_3.gif" alt="Multimodal Inference" width="80%" />
+  <img src="./gifs/multimodal_4.gif" alt="Multimodal Inference" width="80%" />
 </div>
 
 ### File Attachment (PDF/CSV)
@@ -61,7 +70,7 @@ This app supports text-only, multimodal (image + text), file + text, and image g
 Attach `.pdf` or `.csv` files via the 📁 button.
 
 <div align="center">
-  <img src="./gifs/file_attachment_2.gif" alt="File Attachment" width="80%" />
+  <img src="./gifs/file_attachment_3.gif" alt="File Attachment" width="80%" />
 </div>
 
 
