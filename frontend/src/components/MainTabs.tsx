@@ -13,7 +13,8 @@ import { useState, useEffect } from 'react';
 import FineTuneModal from './FineTuneModal';
 import ChatPage from './ChatPage';
 import DiffusionPage from './DiffusionPage';
-import { getAdapters } from '../lib/api'; // ✅ Add this
+import TTSPage from './TTSPage';
+import { getAdapters } from '../lib/api';
 import { sendToBackend } from '../lib/api';
 
 export default function MainTabs({ supports }) {
@@ -84,7 +85,7 @@ export default function MainTabs({ supports }) {
             setChats([]);
             setAdapter(null); // clear adapter on model switch
           }
-        }} sx={{ minWidth: 300 }} disabled={tabIndex === 1}>
+        }} sx={{ minWidth: 300 }} disabled={tabIndex !== 0}>
           <Option value="meta-llama/Llama-3.2-1B-Instruct">📝 LLaMA 3.2 1B</Option>
           <Option value="mlx-community/Qwen2-VL-2B-Instruct-4bit">🖼️ QWEN2 VL 2B</Option>
         </Select>
@@ -96,14 +97,14 @@ export default function MainTabs({ supports }) {
               value={adapter || ""}
               onChange={(_, value) => setAdapter(value)}
               sx={{ minWidth: 200, ml: 2 }}
-              disabled={tabIndex === 1}
+              disabled={tabIndex !== 0}
             >
               <Option value="">(None)</Option>
               {adapters.map((a) => (
                 <Option key={a} value={a}>{a}</Option>
               ))}
             </Select>
-            <Button size="sm" variant="outlined" sx={{ ml: 2 }} onClick={() => setModalOpen(true)} disabled={tabIndex === 1}>
+            <Button size="sm" variant="outlined" sx={{ ml: 2 }} onClick={() => setModalOpen(true)} disabled={tabIndex !== 0}>
               Fine-Tune
             </Button>
           </>
@@ -117,6 +118,7 @@ export default function MainTabs({ supports }) {
           <TabList>
             <Tab>Interact</Tab>
             <Tab>Diffusion</Tab>
+            <Tab>TTS</Tab>
           </TabList>
 
           <TabPanel value={0} sx={{ height: '100%', overflow: 'hidden', p: 0 }}>
@@ -143,6 +145,9 @@ export default function MainTabs({ supports }) {
           <TabPanel value={1} sx={{ height: '100%', overflow: 'auto' }}>
             <DiffusionPage />
           </TabPanel>
+          <TabPanel value={2} sx={{ height: '100%', overflow: 'auto' }}>
+            <TTSPage />
+          </TabPanel>          
         </Tabs>
       </Box>
     </Box>

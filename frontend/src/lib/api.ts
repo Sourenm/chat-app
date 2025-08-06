@@ -77,3 +77,19 @@ export async function postFineTune(payload: {
   });
   return res.json();
 }
+
+export async function generateTTS(text: string): Promise<string> {
+  const response = await fetch('http://localhost:8000/generate_tts', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ text }),
+  });
+
+  if (!response.ok) {
+    throw new Error(`TTS request failed: ${response.statusText}`);
+  }
+
+  const blob = await response.blob();
+  return URL.createObjectURL(blob);
+}
+

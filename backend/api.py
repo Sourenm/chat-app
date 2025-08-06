@@ -7,6 +7,10 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastchat_openai_api import chat_completion
 from pydantic import BaseModel
 from diffusion_worker import generate_image
+from fastapi.responses import FileResponse
+import tempfile
+import uuid
+from tts_wrapper import generate_audio
 
 app = FastAPI()
 
@@ -46,6 +50,9 @@ class FineTuneRequest(BaseModel):
     lora_r: int
     lora_alpha: int
     lora_dropout: float
+
+class TTSRequest(BaseModel):
+    text: str
 
 
 def is_port_open(host: str, port: int) -> bool:
@@ -214,3 +221,10 @@ async def diffusion_generate(req: DiffusionInput):
 
     image_url = await generate_image(req.prompt, req.image)
     return { "image_url": image_url }
+
+
+@app.post("/generate_tts")
+async def generate_tts(request: TTSRequest):
+    tmp_path = tempfile.gettempdir() + "/" + f"{uuid.uuid4()}.wav"
+    generate_audio(request.text, tmp_path)
+    return FileResponse(tmp_path, media_type="audio/wav", filename="tts_output.wav")
