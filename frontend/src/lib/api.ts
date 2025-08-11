@@ -13,13 +13,6 @@ export async function sendToBackend(messages: any[], model: string, image?: stri
   return j?.choices?.[0]?.message?.content ?? '';
 }
 
-export async function getAdapters(): Promise<string[]> {
-  const r = await fetch(`${BASE}/adapters`);
-  if (!r.ok) return []; // soft-fail so UI loads even if endpoint missing
-  const j = await r.json();
-  return j.adapters || [];
-}
-
 export async function generateDiffusionImage(prompt: string, imageData?: string) {
   const r = await fetch(`${BASE}/diffusion/generate`, {
     method: 'POST',
@@ -42,12 +35,14 @@ export async function generateTTS(text: string) {
   return URL.createObjectURL(blob);
 }
 
-/* ---------- used by FineTuneModal ---------- */
-export async function getDatasets(): Promise<string[]> {
-  const r = await fetch(`${BASE}/datasets`);
-  if (!r.ok) return [];
-  const j = await r.json();
-  return j.datasets || [];
+export async function getDatasets() {
+  const res = await fetch("http://localhost:8000/datasets");
+  return res.json();
+}
+
+export async function getAdapters() {
+  const res = await fetch("http://localhost:8000/adapters");
+  return res.json();
 }
 
 export async function postFineTune(payload: {
@@ -60,13 +55,12 @@ export async function postFineTune(payload: {
   lora_alpha: number;
   lora_dropout: number;
 }) {
-  const r = await fetch(`${BASE}/finetune`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+  const res = await fetch("http://localhost:8000/finetune", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload),
   });
-  if (!r.ok) throw new Error(await r.text());
-  return r.json();
+  return res.json();
 }
 
 /* ---------- NEW: RAG helpers (fail-soft) ---------- */
