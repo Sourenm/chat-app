@@ -10,3 +10,7 @@ Pillow
 requests
 sentencepiece
 protobuf
+faiss-cpu
+sentence-transformers
+pypdf
+pandas
