@@ -113,4 +113,6 @@ pytest-debug.log
 
 /backend/wandb/*
 /backend/mlruns/*
+/backend/indices/*
+/backend/uploads/*
 # -------------------------------

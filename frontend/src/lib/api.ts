@@ -1,63 +1,53 @@
-export const sendToBackend = async (
-  messages: any[],
-  model: string,
-  image?: string,
-  adapter_name?: string
-) => {
-  const payload: any = {
-    model,
-    messages,
-    temperature: 0.7,
-    top_p: 1.0,
-    max_tokens: 512,
-  };
+// src/lib/api.ts
+const BASE = 'http://localhost:8000';
 
-  if (image) {
-    payload.image = image;
-  }
-
-  if (adapter_name) {
-    payload.adapter_name = adapter_name;
-  }
-
-  const res = await fetch('http://localhost:8000/v1/chat/completions', {
+/* ---------- existing helpers (keep yours if already present) ---------- */
+export async function sendToBackend(messages: any[], model: string, image?: string) {
+  const r = await fetch(`${BASE}/v1/chat/completions`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(payload),
+    body: JSON.stringify({ model, messages })
   });
+  if (!r.ok) throw new Error(await r.text());
+  const j = await r.json();
+  return j?.choices?.[0]?.message?.content ?? '';
+}
 
-  const data = await res.json();
-  return data?.choices?.[0]?.message?.content || '';
-};
+export async function getAdapters(): Promise<string[]> {
+  const r = await fetch(`${BASE}/adapters`);
+  if (!r.ok) return []; // soft-fail so UI loads even if endpoint missing
+  const j = await r.json();
+  return j.adapters || [];
+}
 
-
-export async function generateDiffusionImage(prompt: string, image?: string): Promise<string> {
-  const payload: any = { prompt };
-  if (image) payload.image = image;
-
-  const res = await fetch('http://localhost:8000/diffusion/generate', {
+export async function generateDiffusionImage(prompt: string, imageData?: string) {
+  const r = await fetch(`${BASE}/diffusion/generate`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(payload),
+    body: JSON.stringify({ prompt, image: imageData || null }),
   });
-
-  if (!res.ok) {
-    const err = await res.text();
-    throw new Error(`Backend error: ${err}`);
-  }
-
-  const data = await res.json();
-  return data.image_url;
+  if (!r.ok) throw new Error(await r.text());
+  const j = await r.json();
+  return j.image_url as string;
 }
 
-export async function getDatasets() {
-  const res = await fetch("http://localhost:8000/datasets");
-  return res.json();
+export async function generateTTS(text: string) {
+  const r = await fetch(`${BASE}/generate_tts`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ text }),
+  });
+  if (!r.ok) throw new Error(await r.text());
+  const blob = await r.blob();
+  return URL.createObjectURL(blob);
 }
 
-export async function getAdapters() {
-  const res = await fetch("http://localhost:8000/adapters");
-  return res.json();
+/* ---------- used by FineTuneModal ---------- */
+export async function getDatasets(): Promise<string[]> {
+  const r = await fetch(`${BASE}/datasets`);
+  if (!r.ok) return [];
+  const j = await r.json();
+  return j.datasets || [];
 }
 
 export async function postFineTune(payload: {
@@ -70,26 +60,61 @@ export async function postFineTune(payload: {
   lora_alpha: number;
   lora_dropout: number;
 }) {
-  const res = await fetch("http://localhost:8000/finetune", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(payload),
-  });
-  return res.json();
-}
-
-export async function generateTTS(text: string): Promise<string> {
-  const response = await fetch('http://localhost:8000/generate_tts', {
+  const r = await fetch(`${BASE}/finetune`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ text }),
+    body: JSON.stringify(payload),
   });
-
-  if (!response.ok) {
-    throw new Error(`TTS request failed: ${response.statusText}`);
-  }
-
-  const blob = await response.blob();
-  return URL.createObjectURL(blob);
+  if (!r.ok) throw new Error(await r.text());
+  return r.json();
 }
 
+/* ---------- NEW: RAG helpers (fail-soft) ---------- */
+export async function ragGetIndexes(): Promise<{ index_name: string; size: number }[]> {
+  try {
+    const r = await fetch(`${BASE}/rag/indexes`);
+    if (!r.ok) return [];
+    const j = await r.json();
+    return j.indexes ?? [];
+  } catch {
+    return []; // don’t crash UI on mount
+  }
+}
+
+export async function ragIndex(indexName: string, files: File[], chunkSize = 850, chunkOverlap = 120) {
+  const fd = new FormData();
+  fd.append('index_name', indexName);
+  fd.append('chunk_size', String(chunkSize));
+  fd.append('chunk_overlap', String(chunkOverlap));
+  for (const f of files) fd.append('files', f);
+
+  const r = await fetch(`${BASE}/rag/index`, { method: 'POST', body: fd });
+  if (!r.ok) throw new Error(await r.text());
+  return r.json();
+}
+
+export async function ragQuery(indexName: string, query: string, topK = 5) {
+  const r = await fetch(`${BASE}/rag/query`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ index_name: indexName, query, top_k: topK })
+  });
+  if (!r.ok) throw new Error(await r.text());
+  return r.json();
+}
+
+export async function ragDeleteDocument(indexName: string, docId: string) {
+  const r = await fetch(`${BASE}/rag/document/${encodeURIComponent(docId)}?index_name=${encodeURIComponent(indexName)}`, {
+    method: 'DELETE'
+  });
+  if (!r.ok) throw new Error(await r.text());
+  return r.json();
+}
+
+export async function ragDeleteIndex(indexName: string) {
+  const r = await fetch(`${BASE}/rag/index/${encodeURIComponent(indexName)}`, {
+    method: 'DELETE',
+  });
+  if (!r.ok) throw new Error(await r.text());
+  return r.json();
+}

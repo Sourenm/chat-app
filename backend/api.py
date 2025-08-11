@@ -4,6 +4,7 @@ import os
 import json
 from fastapi import FastAPI, Request, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from rag_router import router as rag_router
 from fastchat_openai_api import chat_completion
 from pydantic import BaseModel
 from diffusion_worker import generate_image
@@ -13,6 +14,7 @@ import uuid
 from tts_wrapper import generate_audio
 
 app = FastAPI()
+app.include_router(rag_router)
 
 
 model_worker_procs = []
