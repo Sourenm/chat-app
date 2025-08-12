@@ -112,3 +112,60 @@ export async function ragDeleteIndex(indexName: string) {
   if (!r.ok) throw new Error(await r.text());
   return r.json();
 }
+
+// lib/api.ts (append these)
+export async function orchestrateStory(payload: {
+  narrative: string;
+  image?: string | null;
+  rag_docs?: string[] | null;
+  rag_index_name?: string | null;
+  build_index?: boolean;
+  finetune?: boolean;
+  finetune_dataset?: string | null;
+  adapter_name?: string | null;
+  num_epochs?: number;
+  learning_rate?: number;
+  lora_r?: number;
+  lora_alpha?: number;
+  lora_dropout?: number;
+  num_illustrations?: number;
+  illustration_prompt_hint?: string | null;
+}) {
+  const res = await fetch('http://localhost:8000/orchestrate_story', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(text || `HTTP ${res.status}`);
+  }
+  const data = await res.json();
+
+  // Convert audio data URL to a Blob URL for the audio tag (like TTSPage does)
+  let audioBlobUrl: string | null = null;
+  if (data?.audio_wav_b64?.startsWith('data:audio/')) {
+    const resp = await fetch(data.audio_wav_b64);
+    const blob = await resp.blob();
+    audioBlobUrl = URL.createObjectURL(blob);
+  }
+
+  // Convert each illustration data URL to Blob URL for display/saving
+  const illustrationBlobUrls: string[] = [];
+  if (Array.isArray(data?.illustrations)) {
+    for (const durl of data.illustrations) {
+      const resp = await fetch(durl);
+      const blob = await resp.blob();
+      illustrationBlobUrls.push(URL.createObjectURL(blob));
+    }
+  }
+
+  return {
+    scene_summary: data.scene_summary || '',
+    story_text: data.story_text || '',
+    adapter_used: data.adapter_used || null,
+    rag_index_name: data.rag_index_name || null,
+    audioBlobUrl,
+    illustrationBlobUrls,
+  };
+}

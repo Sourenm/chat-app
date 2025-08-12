@@ -17,6 +17,7 @@ import ChatPage from './ChatPage';
 import DiffusionPage from './DiffusionPage';
 import TTSPage from './TTSPage';
 import KnowledgePage from './KnowledgePage';
+import StoryPage from './StoryPage';
 import { getAdapters } from '../lib/api';
 import { sendToBackend, ragQuery, ragGetIndexes } from '../lib/api';
 
@@ -177,7 +178,8 @@ export default function MainTabs({ supports }) {
             <Tab>Interact</Tab>
             <Tab>Diffusion</Tab>
             <Tab>TTS</Tab>
-            <Tab>Knowledge</Tab>{/* NEW */}
+            <Tab>Knowledge</Tab>
+            <Tab>Story</Tab> 
           </TabList>
 
           <TabPanel value={0} sx={{ height: '100%', overflow: 'hidden', p: 0 }}>
@@ -211,6 +213,9 @@ export default function MainTabs({ supports }) {
           <TabPanel value={3} sx={{ height: '100%', overflow: 'auto' }}>
             <KnowledgePage />
           </TabPanel>
+          <TabPanel value={4} sx={{ height: '100%', overflow: 'auto' }}>
+            <StoryPage />
+          </TabPanel>          
         </Tabs>
       </Box>
     </Box>
