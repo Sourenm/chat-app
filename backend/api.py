@@ -12,6 +12,7 @@ from fastapi.responses import FileResponse
 import tempfile
 import uuid
 from tts_wrapper import generate_audio
+from story_orchestrator import app as story_graph_app
 
 app = FastAPI()
 app.include_router(rag_router)
@@ -38,6 +39,28 @@ MODEL_WORKERS = {
         "script": "model_worker_qwen.py"
     }
 }
+
+class StoryRequest(BaseModel):
+    # Orchestration inputs
+    narrative: str
+    image: str | None = None                      # data URL or http(s) URL
+    rag_docs: list[str] | None = None             # local file paths
+    rag_index_name: str | None = None
+    build_index: bool = False
+
+    # Fine-tune options (optional)
+    finetune: bool = False
+    finetune_dataset: str | None = None
+    adapter_name: str | None = None
+    num_epochs: int = 3
+    learning_rate: float = 2e-4
+    lora_r: int = 8
+    lora_alpha: int = 16
+    lora_dropout: float = 0.05
+
+    # Output options
+    num_illustrations: int = 1
+    illustration_prompt_hint: str | None = None
 
 class DiffusionInput(BaseModel):
     prompt: str
@@ -230,3 +253,39 @@ async def generate_tts(request: TTSRequest):
     tmp_path = tempfile.gettempdir() + "/" + f"{uuid.uuid4()}.wav"
     generate_audio(request.text, tmp_path)
     return FileResponse(tmp_path, media_type="audio/wav", filename="tts_output.wav")
+
+
+@app.post("/orchestrate_story")
+async def orchestrate_story(req: StoryRequest):
+    """
+    Runs the multi-model storytelling pipeline:
+    Qwen2-VL -> (optional RAG) -> LLaMA (+optional adapter) -> SDXL -> TTS
+    """
+    init_state = {
+        "narrative": req.narrative,
+        "image": req.image,
+        "rag_docs": req.rag_docs or [],
+        "rag_index_name": req.rag_index_name,
+        "build_index": req.build_index,
+        "finetune": req.finetune,
+        "finetune_dataset": req.finetune_dataset,
+        "adapter_name": req.adapter_name,
+        "num_epochs": req.num_epochs,
+        "learning_rate": req.learning_rate,
+        "lora_r": req.lora_r,
+        "lora_alpha": req.lora_alpha,
+        "lora_dropout": req.lora_dropout,
+        "num_illustrations": req.num_illustrations,
+        "illustration_prompt_hint": req.illustration_prompt_hint,
+    }
+
+    result = await story_graph_app.ainvoke(init_state)
+
+    return {
+        "scene_summary": result.get("scene_summary", ""),
+        "story_text": result.get("story_text", ""),
+        "illustrations": result.get("illustrations", []),       # list of data:image/png;base64
+        "audio_wav_b64": result.get("audio_wav_b64", ""),       # data:audio/wav;base64
+        "adapter_used": result.get("adapter_name", None),
+        "rag_index_name": result.get("rag_index_name", None),
+    }
