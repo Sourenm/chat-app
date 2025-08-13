@@ -9,6 +9,7 @@ import {
   Sheet,
   Stack,
   CircularProgress,
+  Switch,
 } from '@mui/joy';
 import { Trash2Icon } from 'lucide-react';
 
@@ -19,6 +20,10 @@ export default function KnowledgePage() {
   const [indexes, setIndexes] = useState<{ index_name: string; size: number }[]>([]);
   const [files, setFiles] = useState<File[]>([]);
   const [isIndexing, setIsIndexing] = useState(false);
+
+  // Legal mode toggle only
+  const [legalMode, setLegalMode] = useState(false);
+
   const fileRef = useRef<HTMLInputElement | null>(null);
 
   const refresh = async () => {
@@ -36,7 +41,13 @@ export default function KnowledgePage() {
     if (!files.length) return;
     setIsIndexing(true);
     try {
-      await ragIndex(indexName.trim() || 'default', files);
+      await ragIndex(
+        indexName.trim() || 'default',
+        files,
+        850,
+        120,
+        legalMode // pass only legal flag
+      );
       setFiles([]);
       await refresh();
     } catch (e: any) {
@@ -62,13 +73,20 @@ export default function KnowledgePage() {
         Knowledge Base
       </Typography>
 
-      <Stack direction="row" spacing={2} alignItems="center" sx={{ mb: 2 }}>
+      <Stack direction="row" spacing={2} alignItems="center" sx={{ mb: 2, flexWrap: 'wrap' }}>
         <Typography level="body-sm">Index name</Typography>
         <Input
           value={indexName}
           onChange={(e) => setIndexName(e.target.value)}
           sx={{ maxWidth: 220 }}
         />
+
+        {/* Legal mode toggle */}
+        <Stack direction="row" spacing={1} alignItems="center">
+          <Switch checked={legalMode} onChange={(e) => setLegalMode(e.target.checked)} />
+          <Typography level="body-sm">Legal mode</Typography>
+        </Stack>
+
         <Button variant="outlined" onClick={onPickFiles}>
           Choose Files
         </Button>
@@ -91,7 +109,12 @@ export default function KnowledgePage() {
           <ul style={{ marginTop: 6 }}>
             {files.map((f) => (
               <li key={f.name}>
-                <Typography level="body-sm">{f.name}</Typography>
+                <Typography level="body-sm">
+                  {f.name}
+                  {legalMode && f.name.toLowerCase().endsWith('.pdf') && (
+                    <> — will be preprocessed in legal mode</>
+                  )}
+                </Typography>
               </li>
             ))}
           </ul>

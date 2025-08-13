@@ -75,17 +75,29 @@ export async function ragGetIndexes(): Promise<{ index_name: string; size: numbe
   }
 }
 
-export async function ragIndex(indexName: string, files: File[], chunkSize = 850, chunkOverlap = 120) {
+export async function ragIndex(
+  indexName: string,
+  files: File[],
+  chunkSize = 850,
+  chunkOverlap = 120,
+  legal = false,                 // NEW (backward compatible)
+  effectiveDate?: string         // NEW (YYYY-MM-DD)
+) {
   const fd = new FormData();
   fd.append('index_name', indexName);
   fd.append('chunk_size', String(chunkSize));
   fd.append('chunk_overlap', String(chunkOverlap));
   for (const f of files) fd.append('files', f);
 
+  // NEW fields
+  fd.append('legal', legal ? 'true' : 'false');
+  if (effectiveDate) fd.append('effective_date', effectiveDate);
+
   const r = await fetch(`${BASE}/rag/index`, { method: 'POST', body: fd });
   if (!r.ok) throw new Error(await r.text());
   return r.json();
 }
+
 
 export async function ragQuery(indexName: string, query: string, topK = 5) {
   const r = await fetch(`${BASE}/rag/query`, {

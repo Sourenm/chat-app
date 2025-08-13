@@ -1,5 +1,5 @@
 import os
-from typing import List, Optional
+from typing import List, Optional, Set
 from fastapi import APIRouter, UploadFile, File, Form, Query, HTTPException
 from pydantic import BaseModel
 from rag.loaders import load_any
@@ -8,6 +8,7 @@ from rag.embeddings import embed_texts
 from rag.store_faiss import FaissStore
 from rag.pipeline import answer_with_rag
 from pathlib import Path
+from rag.legal_processing import resolve_legal_pdf_to_doc  # <-- NEW
 
 router = APIRouter(prefix="/rag", tags=["rag"])
 
@@ -23,6 +24,8 @@ async def rag_index(
     index_name: str = Form("default"),
     chunk_size: int = Form(850),
     chunk_overlap: int = Form(120),
+    legal: bool = Form(False),                          # NEW
+    effective_date: Optional[str] = Form(None),         # NEW (ISO string like "2025-09-09")
 ):
     os.makedirs("uploads", exist_ok=True)
     saved_paths = []
@@ -34,11 +37,22 @@ async def rag_index(
 
     all_chunks = []
     doc_ids = set()
+
+    # Build docs → chunks (legal PDFs will be resolved first)
     for path in saved_paths:
-        for doc in load_any(path):
+        ext = os.path.splitext(path)[1].lower()
+        if legal and ext == ".pdf":
+            # Resolve cross-refs + relative dates for legal PDF
+            doc = resolve_legal_pdf_to_doc(path, effective_date_override=effective_date)
             doc_ids.add(doc.doc_id)
             chunks = chunk_doc(doc, chunk_tokens=chunk_size, overlap=chunk_overlap)
             all_chunks.extend(chunks)
+        else:
+            # Default loader path (may yield multiple docs per file)
+            for doc in load_any(path):
+                doc_ids.add(doc.doc_id)
+                chunks = chunk_doc(doc, chunk_tokens=chunk_size, overlap=chunk_overlap)
+                all_chunks.extend(chunks)
 
     texts = [c.text for c in all_chunks]
     if len(texts) == 0:
@@ -55,6 +69,8 @@ async def rag_index(
         "doc_ids": list(doc_ids),
         "chunks": len(all_chunks),
         "size": store.size(),
+        "legal_mode": legal,                 # echo back for client UI
+        "effective_date": effective_date,    # echo back for audit
     }
 
 @router.post("/query")
@@ -73,7 +89,7 @@ async def rag_indexes():
     for ipath in glob.glob("indices/*.faiss"):
         name = os.path.splitext(os.path.basename(ipath))[0]
         store = FaissStore(name=name)
-        store.load(dim=384)
+        store.load(dim=384)  # if you store the dim in metadata, prefer to read it instead of hardcoding
         idx.append({"index_name": name, "size": store.size()})
     return {"indexes": idx}
 
@@ -85,7 +101,6 @@ async def rag_delete_document(doc_id: str, index_name: str = Query("default")):
     store.delete_doc(doc_id)
     after = store.size()
     return {"index": index_name, "doc_id": doc_id, "before": before, "after": after}
-
 
 @router.delete("/index/{index_name}")
 async def rag_delete_index(index_name: str):
@@ -118,7 +133,6 @@ async def rag_delete_index(index_name: str):
                 if str(candidate).startswith(str(uploads_dir) + os.sep) or candidate == uploads_dir:
                     source_files.add(candidate)
         except Exception:
-            # If metadata is unreadable, skip file deletion but still delete index artifacts
             source_files = set()
 
     # Delete index artifacts
@@ -137,7 +151,6 @@ async def rag_delete_index(index_name: str):
                 f.unlink()
                 deleted["uploads"].append(str(f))
         except Exception:
-            # ignore failures per-file
             pass
 
     return {
