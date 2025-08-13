@@ -25,12 +25,17 @@ It now includes:
 
 ### 📚 Knowledge Base (RAG)
 - Ingest `.pdf`, `.csv`, `.txt`, `.md`/`.markdown` files into a **local FAISS vector store**
+- **Legal document mode** for `.pdf`:  
+  - Parses clauses/sections based on legal numbering  
+  - Resolves cross-references (e.g., “Section 3.2”) inline with source text  
+  - Converts relative date phrases (e.g., “15 business days after the Effective Date”) into absolute dates  
+  - Outputs a fully “materialized” document for improved retrieval accuracy  
 - Uses **sentence-transformers/all-MiniLM-L6-v2** embeddings (384-dim, MPS-friendly)
 - Token-aware chunking (~850 tokens, 120 overlap) using the LLaMA tokenizer
 - Store and search locally — **no external API calls required**
 - Query via `/rag/query` to get grounded answers with **inline source citations**
 - Manage from new **Knowledge Base tab** in the frontend:
-  - Create indexes from uploaded files
+  - Create indexes from uploaded files, with optional legal mode for PDFs
   - List all indexes
   - **Delete entire index + its uploaded files** directly from the UI
 - Uses clean, consistent Markdown rendering for RAG answers in chat bubbles
@@ -75,7 +80,7 @@ This app supports text-only, multimodal (image + text), file + text, and image g
 - Built with **Vite**, **TypeScript**, **MUI + Joy UI**
 - Electron desktop app with a full-width, tabbed interface
 - Send **text**, **image + text**, and **file + text** (attach `.pdf`, `.csv`, `.txt`, `.md`)
-- **Knowledge Base (RAG) tab** to upload documents, build local indexes, and delete entire indexes + their uploaded files
+- **Knowledge Base (RAG) tab** to upload documents, enable optional legal mode for PDFs, build local indexes, and delete entire indexes + their uploaded files
 - **Diffusion** tab for generating and saving images  
   - Supports **text-to-image** and **image-to-image** workflows
 - **TTS** tab for generating speech from text
@@ -158,7 +163,7 @@ You can now **fine-tune the LLaMA model** using custom JSON datasets via the UI:
 
 ### Knowledge Base (RAG)
 
-The new **Knowledge Base** tab allows you to upload `.pdf`, `.csv`, `.txt`, and `.md` files, index them locally using FAISS, and query them for grounded, citation-backed answers. You can also delete entire indexes along with their uploaded files.
+The new **Knowledge Base** tab allows you to upload `.pdf`, `.csv`, `.txt`, and `.md` files, with optional legal mode for PDFs to resolve clause references and relative dates, index them locally using FAISS, and query them for grounded, citation-backed answers. You can also delete entire indexes along with their uploaded files.
 
 <div align="center">
   <img src="./gifs/rag_2.gif" alt="Knowledge Base (RAG)" width="80%" />
@@ -211,6 +216,7 @@ chat-app/
 │   ├── rag_router.py                # RAG API endpoints
 │   ├── rag/                         # RAG core logic
 │   │   ├── loaders.py               # PDF, CSV, TXT/MD parsers
+│   │   ├── legal_processing.py      # Preprocessing legal documents
 │   │   ├── chunker.py               # Token-aware chunking
 │   │   ├── embeddings.py            # MiniLM embeddings
 │   │   ├── store_faiss.py           # FAISS store + metadata
@@ -312,9 +318,10 @@ npm run build
     - Attach images (from file or URL) for multimodal prompts
     - Attach files (`.pdf`, `.csv`) for file-aware chat
   - `Knowledge Base` tab  
-    - Upload `.pdf`, `.csv`, `.txt`, or `.md` documents
-    - Build local FAISS indexes from uploads
-    - View all existing indexes with their chunk counts
+    - Upload `.pdf`, `.csv`, `.txt`, or `.md` documents  
+    - Optional legal mode for PDFs to resolve clause references and relative dates before indexing  
+    - Build local FAISS indexes from uploads  
+    - View all existing indexes with their chunk counts  
     - Delete an entire index (and its uploaded files) directly from the UI
   - `Diffusion` tab  
     - Generate images from text prompts (**text-to-image**)
