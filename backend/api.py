@@ -2,6 +2,11 @@ import asyncio
 import socket
 import os
 import json
+import sys
+import httpx
+import time
+import signal
+from typing import Optional
 from fastapi import FastAPI, Request, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from rag_router import router as rag_router
@@ -13,10 +18,26 @@ import tempfile
 import uuid
 from tts_wrapper import generate_audio
 from story_orchestrator import app as story_graph_app
+from dynamic_registry import register as dyn_register, get as dyn_get, remove as dyn_remove
+
+from huggingface_hub import model_info
+
+# Be compatible across huggingface_hub versions
+try:
+    from huggingface_hub.errors import (
+        HfHubHTTPError,
+        RepositoryNotFoundError,
+        RevisionNotFoundError,
+    )
+except Exception:
+    # Fallback stubs for very old versions
+    class HfHubHTTPError(Exception): ...
+    class RepositoryNotFoundError(Exception): ...
+    class RevisionNotFoundError(Exception): ...
+
 
 app = FastAPI()
 app.include_router(rag_router)
-
 
 model_worker_procs = []
 
@@ -39,6 +60,13 @@ MODEL_WORKERS = {
         "script": "model_worker_qwen.py"
     }
 }
+
+class MLXLoadRequest(BaseModel):
+    hf_model_id: str
+    max_new_tokens: Optional[int] = 512
+
+class MLXUnloadRequest(BaseModel):
+    hf_model_id: str
 
 class StoryRequest(BaseModel):
     # Orchestration inputs
@@ -84,6 +112,13 @@ def is_port_open(host: str, port: int) -> bool:
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
         s.settimeout(1.0)
         return s.connect_ex((host, port)) == 0
+    
+def find_free_port(start=21100, end=21200):
+    host = "127.0.0.1"
+    for p in range(start, end):
+        if not is_port_open(host, p):
+            return p
+    raise HTTPException(status_code=503, detail="No free ports available for dynamic MLX worker.")
 
 async def wait_for_port(port: int, retries: int = None, delay: float = 2) -> bool:
     if retries is not None:
@@ -289,3 +324,102 @@ async def orchestrate_story(req: StoryRequest):
         "adapter_used": result.get("adapter_name", None),
         "rag_index_name": result.get("rag_index_name", None),
     }
+
+async def _model_info_async(hf_id: str):
+    loop = asyncio.get_running_loop()
+    token = os.environ.get("HUGGING_FACE_HUB_TOKEN")
+    return await loop.run_in_executor(None, lambda: model_info(hf_id, token=token))
+
+
+@app.post("/mlx/load")
+async def mlx_load(req: MLXLoadRequest):
+    hf_id = req.hf_model_id.strip()
+
+    # If already loaded, return existing port
+    existing = dyn_get(hf_id)
+    if existing:
+        return {"status": "already_loaded", "model": hf_id, "port": existing["port"]}
+
+    # Validate HF model ID quickly (does it exist? is it public?)
+    try:
+        info = await _model_info_async(hf_id)
+    except Exception as e:
+        raise HTTPException(status_code=404, detail=f"Cannot resolve HF model '{hf_id}': {e}")
+
+    port = find_free_port()
+
+    BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+
+    # --- spawn worker ---
+    env = os.environ.copy()
+    env["DYN_MLX_MODEL_ID"] = hf_id
+    env["DYN_MLX_PORT"] = str(port)
+    env["DYN_MLX_STANDALONE"] = "1"
+
+    proc = await asyncio.create_subprocess_exec(
+        sys.executable, "-u", os.path.join(BASE_DIR, "dynamic_mlx_worker.py"),
+        env=env, cwd=BASE_DIR,
+        stdout=asyncio.subprocess.PIPE,
+        stderr=asyncio.subprocess.PIPE,
+    )
+
+    async def _wait_ready_or_fail():
+        # poll health while also checking for early process exit
+        health_url = f"http://127.0.0.1:{port}/health"
+        start = asyncio.get_event_loop().time()
+        timeout_s = 300.0
+        async with httpx.AsyncClient(timeout=5.0) as client:
+            while True:
+                # if process died, surface stderr immediately
+                rc = proc.returncode
+                if rc is not None:
+                    try:
+                        err = await asyncio.wait_for(proc.stderr.read(16384), timeout=1.0)
+                    except Exception:
+                        err = b""
+                    msg = err.decode(errors="ignore") or f"Worker exited with code {rc}"
+                    raise HTTPException(status_code=500, detail=f"Failed to start dynamic MLX worker. {msg}")
+
+                # check health
+                try:
+                    r = await client.get(health_url)
+                    if r.status_code == 200 and r.json().get("ok"):
+                        return
+                except Exception:
+                    pass
+
+                if asyncio.get_event_loop().time() - start > timeout_s:
+                    # read some stderr for debugging
+                    try:
+                        err = await asyncio.wait_for(proc.stderr.read(16384), timeout=1.0)
+                    except Exception:
+                        err = b""
+                    msg = err.decode(errors="ignore")
+                    raise HTTPException(status_code=504, detail=f"Dynamic MLX worker timed out. {msg[-1200:]}")
+
+                await asyncio.sleep(0.5)
+
+    await _wait_ready_or_fail()
+
+    # Store in registry
+    dyn_register(hf_id, port, proc.pid)
+
+    return {"status": "loaded", "model": hf_id, "port": port}
+
+
+@app.delete("/mlx/unload")
+async def mlx_unload(req: MLXUnloadRequest):
+    hf_id = req.hf_model_id.strip()
+    meta = dyn_get(hf_id)
+    if not meta:
+        return {"status": "not_loaded", "model": hf_id}
+
+    pid = meta["pid"]
+    dyn_remove(hf_id)
+
+    try:
+        os.kill(pid, signal.SIGTERM)
+    except ProcessLookupError:
+        pass
+
+    return {"status": "unloaded", "model": hf_id}
