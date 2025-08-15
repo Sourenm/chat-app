@@ -181,3 +181,29 @@ export async function orchestrateStory(payload: {
     illustrationBlobUrls,
   };
 }
+
+export async function loadDynamicModel(hfModelId: string, maxNewTokens = 512) {
+  const r = await fetch('http://localhost:8000/mlx/load', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ hf_model_id: hfModelId, max_new_tokens: maxNewTokens }),
+  });
+  if (!r.ok) {
+    const t = await r.text();
+    throw new Error(`Failed to load model: ${t}`);
+  }
+  return r.json(); // { status, model, port }
+}
+
+export async function unloadDynamicModel(hfModelId: string) {
+  const r = await fetch('http://localhost:8000/mlx/unload', {
+    method: 'DELETE',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ hf_model_id: hfModelId }),
+  });
+  if (!r.ok) {
+    const t = await r.text();
+    throw new Error(`Failed to unload model: ${t}`);
+  }
+  return r.json(); // { status, model }
+}
