@@ -151,7 +151,8 @@ async def chat_completion(request: Request):
         }            
 
         if model_name == "meta-llama/Llama-3.2-1B-Instruct":
-            worker_payload["adapter_name"] = payload.get("adapter_name")
+            worker_payload["adapter_name"] = payload.get("adapter")
+            print(f"Using adapter: {worker_payload['adapter_name']}")
             # Use official Llama 3.x chat template, and stop at end-of-turn
             prompt = build_llama3_prompt(messages)
             # Ensure we stop generation when the model emits end-of-turn

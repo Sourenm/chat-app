@@ -1,71 +1,73 @@
-from transformers import Trainer, TrainingArguments, AutoModelForCausalLM, AutoTokenizer, DataCollatorForLanguageModeling
+import argparse, os
 from datasets import load_dataset
+from transformers import (
+    AutoModelForCausalLM, AutoTokenizer, DataCollatorForLanguageModeling,
+    Trainer, TrainingArguments
+)
 from peft import get_peft_model, LoraConfig, TaskType
 
-import argparse
+def main():
+    p = argparse.ArgumentParser()
+    p.add_argument("--base_model", required=True)
+    p.add_argument("--train_file", required=True)
+    p.add_argument("--output_dir", required=True)               # e.g., ./adapters/alpaca_tune
+    p.add_argument("--num_epochs", type=int, default=3)
+    p.add_argument("--learning_rate", type=float, default=2e-4)
+    p.add_argument("--lora_r", type=int, default=16)
+    p.add_argument("--lora_alpha", type=int, default=32)
+    p.add_argument("--lora_dropout", type=float, default=0.05)
+    args = p.parse_args()
 
-print("🚀 Starting finetune_llama.py")
+    os.makedirs(args.output_dir, exist_ok=True)
 
-parser = argparse.ArgumentParser()
-parser.add_argument("--base_model")
-parser.add_argument("--train_file")
-parser.add_argument("--output_dir")
-parser.add_argument("--num_epochs", type=int)
-parser.add_argument("--learning_rate", type=float)
-parser.add_argument("--lora_r", type=int)
-parser.add_argument("--lora_alpha", type=int)
-parser.add_argument("--lora_dropout", type=float)
-args = parser.parse_args()
+    print("🚀 Loading base + tokenizer")
+    tok = AutoTokenizer.from_pretrained(args.base_model, use_fast=True)
+    tok.pad_token = tok.eos_token
 
-print(f"📦 Loading base model: {args.base_model}")
-model = AutoModelForCausalLM.from_pretrained(args.base_model)
-tokenizer = AutoTokenizer.from_pretrained(args.base_model)
-if tokenizer.pad_token is None:
-    print("ℹ️ No pad_token found. Setting pad_token = eos_token")
-    tokenizer.pad_token = tokenizer.eos_token
+    base = AutoModelForCausalLM.from_pretrained(args.base_model)
 
-print("🔧 Applying LoRA configuration")
-peft_config = LoraConfig(
-    r=args.lora_r,
-    lora_alpha=args.lora_alpha,
-    lora_dropout=args.lora_dropout,
-    bias="none",
-    task_type=TaskType.CAUSAL_LM,
-)
-model = get_peft_model(model, peft_config)
+    print("🪄 Applying LoRA")
+    peft_cfg = LoraConfig(
+        r=args.lora_r,
+        lora_alpha=args.lora_alpha,
+        lora_dropout=args.lora_dropout,
+        task_type=TaskType.CAUSAL_LM,
+        target_modules=["q_proj", "k_proj", "v_proj", "o_proj"]  # safe default for LLaMA-like
+    )
+    model = get_peft_model(base, peft_cfg)
 
-print(f"📂 Loading dataset from: {args.train_file}")
-dataset = load_dataset("json", data_files=args.train_file, split="train")
+    print("📚 Loading dataset")
+    ds = load_dataset("json", data_files=args.train_file)["train"]
 
-print("🪄 Tokenizing dataset...")
-def tokenize_fn(example):
-    return tokenizer(example["text"], truncation=True, padding="max_length")
+    def tok_fn(ex):
+        return tok(ex["text"], truncation=True, max_length=2048)
 
-tokenized = dataset.map(tokenize_fn, batched=True)
-collator = DataCollatorForLanguageModeling(tokenizer, mlm=False)
+    ds_tok = ds.map(tok_fn, batched=True, remove_columns=ds.column_names)
+    collator = DataCollatorForLanguageModeling(tokenizer=tok, mlm=False)
 
-print("🧠 Starting training loop...")
-training_args = TrainingArguments(
-    output_dir=args.output_dir,
-    per_device_train_batch_size=4,
-    num_train_epochs=args.num_epochs,
-    learning_rate=args.learning_rate,
-    logging_steps=10,
-    save_steps=500,
-    save_total_limit=2,
-)
+    print("⚙️ Training")
+    targs = TrainingArguments(
+        output_dir=args.output_dir,           # checkpoints -> same folder
+        per_device_train_batch_size=1,
+        gradient_accumulation_steps=8,
+        num_train_epochs=args.num_epochs,
+        learning_rate=args.learning_rate,
+        logging_steps=10,
+        save_steps=500,
+        save_total_limit=2,
+        report_to=["tensorboard"],
+        fp16=False
+    )
 
-trainer = Trainer(
-    model=model,
-    args=training_args,
-    train_dataset=tokenized,
-    data_collator=collator,
-)
+    trainer = Trainer(model=model, args=targs, train_dataset=ds_tok, data_collator=collator)
+    trainer.train()
 
-trainer.train()
+    print(f"💾 Saving adapter to: {args.output_dir}")
+    # IMPORTANT: save the PEFT adapter (this writes adapter_config.json + weights)
+    model.save_pretrained(args.output_dir)
+    tok.save_pretrained(args.output_dir)
 
-print(f"💾 Saving adapter to: {args.output_dir}")
-model.save_pretrained(args.output_dir)
-tokenizer.save_pretrained(args.output_dir)
+    print("✅ Done")
 
-print("✅ Fine-tuning complete.")
+if __name__ == "__main__":
+    main()

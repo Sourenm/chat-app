@@ -2,16 +2,35 @@
 const BASE = 'http://localhost:8000';
 
 /* ---------- existing helpers (keep yours if already present) ---------- */
-export async function sendToBackend(messages: any[], model: string, image?: string) {
-  const r = await fetch(`${BASE}/v1/chat/completions`, {
+export async function sendToBackend(
+  messages: any[],
+  model: string,
+  image?: string | null,
+  adapter?: string | null
+) {
+  const res = await fetch('http://localhost:8000/v1/chat/completions', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ model, messages })
+    body: JSON.stringify({
+      model,
+      messages,
+      stream: false,
+      // optional extras your backend can read
+      adapter: adapter || null,
+      // if you also want to forward an inline image url/dataURI for VL models:
+      image: image || null
+    })
   });
-  if (!r.ok) throw new Error(await r.text());
-  const j = await r.json();
-  return j?.choices?.[0]?.message?.content ?? '';
+
+  if (!res.ok) {
+    const t = await res.text().catch(() => '');
+    throw new Error(`Backend error ${res.status}: ${t}`);
+  }
+
+  const data = await res.json();
+  return data?.choices?.[0]?.message?.content ?? '';
 }
+
 
 export async function generateDiffusionImage(prompt: string, imageData?: string) {
   const r = await fetch(`${BASE}/diffusion/generate`, {

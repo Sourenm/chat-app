@@ -17,8 +17,9 @@ export default function FineTuneModal({ open, onClose }) {
     const [dropout, setDropout] = useState(0.1);
 
     useEffect(() => {
-        getDatasets().then(setDatasets);
-    }, []);
+      if (open) getDatasets().then(setDatasets);
+    }, [open]);
+
 
     const handleSubmit = async () => {
     setIsLoading(true);
@@ -48,10 +49,12 @@ export default function FineTuneModal({ open, onClose }) {
         <DialogTitle>Fine-Tune LLaMA Model</DialogTitle>
         <DialogContent>
           <Typography>Select Dataset</Typography>
-          <Select value={dataset} onChange={(_, v) => setDataset(v)}>
-            {datasets.map((d) => (
-              <Option key={d} value={d}>{d}</Option>
-            ))}
+          <Select value={dataset} onChange={(_, v) => setDataset(v)} placeholder="Choose a dataset">
+            {datasets.length === 0 ? (
+              <Option value="" disabled>(No datasets found)</Option>
+            ) : (
+              datasets.map((d) => <Option key={d} value={d}>{d}</Option>)
+            )}
           </Select>
           <Typography mt={1}>Adapter Name</Typography>
           <Input value={adapterName} onChange={(e) => setAdapterName(e.target.value)} />
