@@ -131,7 +131,8 @@ export default function MainTabs({ supports }) {
     visiblePrompt: string,
     image?: string,
     selectedModel?: string,
-    fullPromptOverride?: string
+    fullPromptOverride?: string,
+    selectedAdapter?: string | null
   ) => {
     const userMessage = {
       t: visiblePrompt,
@@ -170,7 +171,12 @@ export default function MainTabs({ supports }) {
         } else {
           messages.push({ role: 'user', content: fullPrompt });
         }
-        const responseText = await sendToBackend(messages, selectedModel || model, image);
+        const responseText = await sendToBackend(
+          messages,
+          selectedModel || model,
+          image,
+          selectedAdapter ?? null
+        );
         const botMessage = {
           t: responseText,
           user: 'bot',
