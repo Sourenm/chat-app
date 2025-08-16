@@ -4,6 +4,7 @@ This is a lightweight full-stack AI chat application with a modern **Electron + 
 It now includes:
 - **Retrieval-Augmented Generation (RAG)** for grounded answers from your own documents.
 - **LangGraph-based Multi-Model Orchestration** for complex, multimodal workflows.
+- **On-Demand MLX Models (NEW)** — paste **any Hugging Face model ID** (text-generation) in the UI and the app spins up a dedicated **MLX worker** for it on the fly (downloads if needed, health-checked, isolated port, auto-routed). Switching back to a static model will gracefully **unload** the dynamic worker.
 
 ---
 
@@ -13,6 +14,7 @@ It now includes:
 - 🧠 Natural language conversation using Meta’s **LLaMA-3.2-1B-Instruct**
 - 🖼️ Multimodal (text + image) reasoning with **Qwen2-VL-2B**
 - 🗂️ File attachment for both text-only and multimodal models
+- 🔌 **On-Demand MLX Models (NEW)** — paste **any Hugging Face text-generation model ID** and the app spins up a dedicated **MLX worker** for it (downloaded if needed, health-checked, auto-routed). Switching back to a static model gracefully **unloads** the dynamic worker. *(Text-only causal LMs; multimodal remains Qwen-VL.)*
 
 ### 🎨 Image Generation
 - **Text-to-Image** and **Image-to-Image** generation via **Stable Diffusion XL (SDXL)** on Apple Silicon using MLX
@@ -63,22 +65,30 @@ It now includes:
 This project is fully optimized for **Apple Silicon** with native MPS-backed inference.
 
 ---
+## Architecture
 
-## Supported Models
+### Supported Models
 
 This app supports text-only, multimodal (image + text), file + text, and image generation (diffusion) inference:
 
-| Model                               | Type         | Notes                                             |
-|------------------------------------|--------------|---------------------------------------------------|
-| meta-llama/Llama-3.2-1B-Instruct   | Text-only    | Lightweight, fast local inference                 |
-| mlx-community/Qwen2-VL-2B          | Multimodal   | Supports image + text joint reasoning             |
-| Stable Diffusion XL (via MLX)      | Diffusion    | Supports text-to-image and image-to-image prompts |
+| Model                                             | Type         | Notes                                                                                 |
+|--------------------------------------------------|--------------|---------------------------------------------------------------------------------------|
+| **meta-llama/Llama-3.2-1B-Instruct**             | Text-only    | Lightweight, fast local inference (static worker)                                     |
+| **mlx-community/Qwen2-VL-2B**                    | Multimodal   | Image + text joint reasoning (static worker)                                          |
+| **Stable Diffusion XL (via MLX)**                | Diffusion    | Text-to-image and image-to-image prompts                                              |
+| **Any HF text-generation model via MLX (NEW)**   | Text-only    | **Paste a Hugging Face model ID** in the UI to spin up a dedicated MLX worker on demand|
 
-## ✨ Features
+**On-Demand MLX Models (examples that work well):**
+- `mlx-community/TinyLlama-1.1B-Chat-v1.0-4bit`
+- `mlx-community/Qwen2.5-0.5B-Instruct-4bit`
+- `mlx-community/gemma-2-2b-it-4bit`
+
+> **How it works:** Paste a valid **text-generation** (causal LM) HF ID → the backend launches an isolated MLX worker (downloads if needed), health-checks it, and routes chat to it automatically. Switching back to a static model **unloads** the dynamic worker. *(Multimodal remains Qwen-VL.)*
 
 ### ✅ Frontend (Electron + React)
 - Built with **Vite**, **TypeScript**, **MUI + Joy UI**
 - Electron desktop app with a full-width, tabbed interface
+- **Model chooser with “Paste HF Model ID…” (NEW)** — paste any **Hugging Face text-generation** model ID to spin up an on-demand **MLX** worker; switching back to a static model unloads it
 - Send **text**, **image + text**, and **file + text** (attach `.pdf`, `.csv`, `.txt`, `.md`)
 - **Knowledge Base (RAG) tab** to upload documents, enable optional legal mode for PDFs, build local indexes, and delete entire indexes + their uploaded files
 - **Diffusion** tab for generating and saving images  
@@ -93,15 +103,23 @@ This app supports text-only, multimodal (image + text), file + text, and image g
   - Configure number of illustrations and style hints
   - View scene summary, generated story, illustrations, and listen to the narrated audio
 - Talks to the backend via:
-  - OpenAI-compatible `/v1/chat/completions`
+  - OpenAI-compatible `/v1/chat/completions` (routes to static or dynamic workers; set `"model"` to the pasted HF ID to use the dynamic worker)
   - `/diffusion/generate`
   - `/rag/*` endpoints for retrieval
   - `/orchestrate_story` endpoint for LangGraph storytelling pipeline
+  - **(NEW)** `/mlx/load` & `/mlx/unload` to manage on-demand MLX workers
 
 ### ✅ Backend (FastAPI + Hugging Face + MLX + LangGraph)
 - **FastAPI** server with CORS, hosting chat, diffusion, TTS, fine-tuning, **RAG**, and orchestration APIs
-- Auto-launches model workers (`model_worker.py`, `model_worker_qwen.py`) on startup
-- Text & multimodal served via **`transformers.pipeline`** on **MPS (Apple Silicon)**, CUDA, or CPU
+- Auto-launches static model workers (`model_worker.py`, `model_worker_qwen.py`) on startup
+- **Dynamic MLX worker (NEW)**:
+  - `POST /mlx/load` — validates the pasted HF ID, picks a free port, spawns `dynamic_mlx_worker.py` (using `mlx_lm`), waits for `/health`, and registers `{model_id → port}`
+  - `DELETE /mlx/unload` — terminates the spawned worker and unregisters it
+  - Workers expose `/worker_generate` and are isolated per model on their own port
+  - The OpenAI-style `/v1/chat/completions` **proxies** to static workers or to the dynamic worker based on the `"model"` field (exact HF ID)
+  - Supports public models; private/gated repos require `HUGGING_FACE_HUB_TOKEN`
+  - **Apple Silicon/MLX** required for dynamic workers
+- Text & multimodal served via **`transformers.pipeline`** (static path) on **MPS (Apple Silicon)**, CUDA, or CPU; **dynamic** text models run via **`mlx_lm`** (MLX)
 - Diffusion runs locally with **MLX Stable Diffusion XL** via subprocess (`txt2image.py`)
 - TTS runs locally using `tts_models/en/ljspeech/tacotron2-DDC`
 - **RAG**: local **FAISS** vector store with JSON metadata, token-aware chunking (~850 tokens, 120 overlap), and **MiniLM-L6** embeddings
@@ -124,13 +142,27 @@ This app supports text-only, multimodal (image + text), file + text, and image g
 
 ### Text to Speech
 <div align="center">
-  <img src="./gifs/TTS_3.gif" alt="Text2Image Diffusion" width="80%" />
+  <img src="./gifs/TTS_3.gif" alt="Text to Speech" width="80%" />
 </div>
 
 ### Multimodal Inference
 <div align="center">
   <img src="./gifs/multimodal_6.gif" alt="Multimodal Inference" width="80%" />
 </div>
+
+### 🔌 On-Demand MLX Models (Paste HF ID) — NEW
+Load **any Hugging Face text-generation model** at runtime:
+
+1. In the **Interact** tab, open the model dropdown and select **“Paste HF Model ID…”**.  
+2. Paste a repo like `mlx-community/TinyLlama-1.1B-Chat-v1.0-4bit` and click **Load**.  
+3. Chat as usual — the app routes requests to a dedicated **MLX worker** for that model.  
+4. Switching back to a static model (LLaMA or Qwen-VL) gracefully **unloads** the dynamic worker.
+
+<div align="center">
+  <img src="./gifs/mlx_worker.gif" alt="On-Demand MLX Models" width="80%" />
+</div>
+
+> Works for text-only causal LMs on Apple Silicon (MLX). Private/gated models require `HUGGING_FACE_HUB_TOKEN`.
 
 ### File Attachment (PDF/CSV)
 
@@ -141,7 +173,7 @@ Attach `.pdf` or `.csv` files via the 📁 button.
 </div>
 
 
-## 🧠 Fine-Tuning Support (LLaMA 3.2 1B)
+### 🧠 Fine-Tuning Support (LLaMA 3.2 1B)
 
 You can now **fine-tune the LLaMA model** using custom JSON datasets via the UI:
 
@@ -166,7 +198,7 @@ You can now **fine-tune the LLaMA model** using custom JSON datasets via the UI:
 The new **Knowledge Base** tab allows you to upload `.pdf`, `.csv`, `.txt`, and `.md` files, with optional legal mode for PDFs to resolve clause references and relative dates, index them locally using FAISS, and query them for grounded, citation-backed answers. You can also delete entire indexes along with their uploaded files.
 
 <div align="center">
-  <img src="./gifs/rag_2.gif" alt="Knowledge Base (RAG)" width="80%" />
+  <img src="./gifs/rag_3.gif" alt="Knowledge Base (RAG)" width="80%" />
 </div>
 
 ### 🎭 Storytelling Orchestration (NEW — LangGraph)
@@ -213,6 +245,8 @@ chat-app/
 │   ├── diffusion_worker.py
 │   ├── finetune_llama.py
 │   ├── tts_wrapper.py
+│   ├── dynamic_mlx_worker.py
+│   ├── dynamic_registry.py
 │   ├── rag_router.py                # RAG API endpoints
 │   ├── rag/                         # RAG core logic
 │   │   ├── loaders.py               # PDF, CSV, TXT/MD parsers
@@ -231,9 +265,12 @@ chat-app/
     │   │   ├── KnowledgePage.tsx    # UI for uploading/querying/deleting indexes
     │   │   ├── ChatBubble.tsx
     │   │   ├── ChatPage.tsx
+    │   │   ├── ChatSubmit.tsx    
     │   │   ├── MainTabs.tsx
     │   │   ├── TTSPage.tsx
     │   │   └── DiffusionPage.tsx
+    │   │   └── FineTuneModal.tsx    
+    │   │   └── StoryPage.tsx    
     │   ├── lib/
     │   │   └── api.ts               # Frontend API calls (RAG + core endpoints)
     │   ├── App.tsx
@@ -309,6 +346,10 @@ npm run build
 
 - A model selector dropdown at the top allows switching between available models  
   (disabled in Diffusion, Knowledge Base, and Story tabs when not relevant).
+- **Paste HF Model ID… (NEW):** from the model selector, choose **“Paste HF Model ID…”** to enter any Hugging Face **text-generation** repo (e.g., `mlx-community/TinyLlama-1.1B-Chat-v1.0-4bit`).  
+  - The backend launches a dedicated **MLX worker** for that model (downloads if needed) and routes chats to it automatically.  
+  - Switching back to a static model (LLaMA or Qwen-VL) **unloads** the dynamic worker.  
+  - The selector shows the active pasted ID with a **(Dynamic MLX)** hint.
 - **Fine-tune** button opens a configuration modal to train LoRA adapters on custom data  
   (available when the **LLaMA 3.2 1B** model is selected).
 - **Tab-based interface** with:
@@ -346,7 +387,7 @@ npm run build
 
 Used for LLM inference (text-only and multimodal).
 
-**Request:**
+**Request (static LLaMA or Qwen-VL):**
 ```json
 {
   "model": "meta-llama/Llama-3.2-1B-Instruct",
@@ -356,6 +397,38 @@ Used for LLM inference (text-only and multimodal).
   "temperature": 0.7,
   "top_p": 1,
   "max_tokens": 512
+}
+```
+
+**Request (dynamic MLX model — NEW):**
+```json
+{
+  "model": "mlx-community/TinyLlama-1.1B-Chat-v1.0-4bit",
+  "messages": [
+    { "role": "user", "content": "Hello!" }
+  ],
+  "temperature": 0.4,
+  "top_p": 0.9,
+  "max_tokens": 96
+}
+```
+
+> Set `"model"` to the **exact HF ID** you loaded with `/mlx/load` (see below).  
+> Dynamic MLX models are **text-only**; multimodal remains Qwen-VL.
+
+**Multimodal message (Qwen-VL only):**
+```json
+{
+  "model": "mlx-community/Qwen2-VL-2B",
+  "messages": [
+    {
+      "role": "user",
+      "content": [
+        { "type": "text", "text": "What’s in this image?" },
+        { "type": "image_url", "image_url": "data:image/png;base64,..." }
+      ]
+    }
+  ]
 }
 ```
 
@@ -378,7 +451,50 @@ Used for LLM inference (text-only and multimodal).
 }
 ```
 
-### 🎨 POST /diffusion/generate
+---
+
+### 🔌 POST `/mlx/load` (NEW)
+
+Launches an **on-demand MLX worker** for a pasted Hugging Face **text-generation** model ID.
+
+**Request:**
+```json
+{
+  "hf_model_id": "mlx-community/TinyLlama-1.1B-Chat-v1.0-4bit",
+  "max_new_tokens": 96
+}
+```
+
+**Response:**
+```json
+{
+  "status": "loaded",
+  "model": "mlx-community/TinyLlama-1.1B-Chat-v1.0-4bit",
+  "port": 21100
+}
+```
+
+> After this, set `"model"` to the exact HF ID in `/v1/chat/completions` to route chats to this worker.  
+> Private/gated repos require `HUGGING_FACE_HUB_TOKEN` in the backend environment.  
+> Requires Apple Silicon (MLX).
+
+### 🔻 DELETE `/mlx/unload` (NEW)
+
+Stops and unregisters a previously loaded dynamic MLX worker.
+
+**Request:**
+```json
+{ "hf_model_id": "mlx-community/TinyLlama-1.1B-Chat-v1.0-4bit" }
+```
+
+**Response:**
+```json
+{ "status": "unloaded", "model": "mlx-community/TinyLlama-1.1B-Chat-v1.0-4bit" }
+```
+
+---
+
+### 🎨 POST `/diffusion/generate`
 
 Used for **text-to-image** and **image-to-image** generation via Stable Diffusion XL (SDXL) in MLX.
 
@@ -399,9 +515,11 @@ Used for **text-to-image** and **image-to-image** generation via Stable Diffusio
 
 The returned base64 image will be rendered directly inside the frontend.
 
-> 💡 Make sure you've set the TXT2IMG_SCRIPT path correctly and cloned mlx-examples.
+> 💡 Make sure you've set the TXT2IMG_SCRIPT path correctly and cloned `mlx-examples`.
 
-### 🎭 POST /orchestrate_story (NEW)
+---
+
+### 🎭 POST `/orchestrate_story` (NEW)
 
 Runs the **LangGraph storytelling orchestration** pipeline, connecting Qwen2-VL, optional RAG, optional fine-tuned LLaMA, SDXL, and TTS.
 
@@ -454,15 +572,6 @@ The frontend will:
 - **RAG support**:
   - Local FAISS vector store
   - SentenceTransformers embeddings (`all-MiniLM-L6-v2`)
-  - Token-aware chunking with LLaMA tokenizer
-  - PDF/CSV/TXT/MD parsing
-
-- Multimodal prompts are parsed safely: base64 image data is extracted and excluded from tokenized text
-- Prompts are truncated before formatting to respect model limits (32768 tokens)
-- Backend routes are model-aware and extract text + image cleanly
-- **RAG support**:
-  - Local FAISS vector store
-  - SentenceTransformers embeddings (all-MiniLM-L6-v2)
   - Token-aware chunking with LLaMA tokenizer
   - PDF/CSV/TXT/MD parsing
 - **LangGraph orchestration**:
