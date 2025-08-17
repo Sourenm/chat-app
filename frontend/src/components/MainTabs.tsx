@@ -41,6 +41,8 @@ export default function MainTabs({ supports }) {
   const [adapter, setAdapter] = useState<string | null>(null);
   const [adapters, setAdapters] = useState<string[]>([]);
   const [modalOpen, setModalOpen] = useState(false);
+  const [adaptersLoading, setAdaptersLoading] = useState(false);
+  const [indexesLoading, setIndexesLoading] = useState(false);
 
   // NEW: dynamic worker tracking
   const [dynamicModelId, setDynamicModelId] = useState<string | null>(null);
@@ -58,18 +60,77 @@ export default function MainTabs({ supports }) {
   const [availableIndexes, setAvailableIndexes] = useState<{ index_name: string; size: number }[]>([]);
 
   useEffect(() => {
+    if (pasteOpen) {
+      // focus as soon as modal opens
+      setTimeout(() => pasteInputRef.current?.focus(), 100);
+    }
+  }, [pasteOpen]);  
+
+  useEffect(() => {
     getAdapters().then(setAdapters);
     ragGetIndexes().then(setAvailableIndexes);
   }, []);
 
-  useEffect(() => {
-    if (pasteOpen && pasteInputRef.current) {
-      // slight delay so modal finishes opening
-      setTimeout(() => pasteInputRef.current?.focus(), 50);
+  const refreshAdapters = async () => {
+    setAdaptersLoading(true);
+    try {
+      const list = await getAdapters();
+      setAdapters(list);
+    } finally {
+      setAdaptersLoading(false);
     }
-  }, [pasteOpen]);
+  };
+  
+  useEffect(() => {
+    // initial load
+    refreshAdapters();
+    ragGetIndexes().then(setAvailableIndexes);
+  }, []);
+  
+  useEffect(() => {
+    // keep adapters fresh when the app regains focus
+    const onFocus = () => refreshAdapters();
+    window.addEventListener('focus', onFocus);
+    return () => window.removeEventListener('focus', onFocus);
+  }, []);
 
-  const refreshIndexes = async () => setAvailableIndexes(await ragGetIndexes());
+  const refreshIndexes = async () => {
+    setIndexesLoading(true);
+    try {
+      const items = await ragGetIndexes();
+      setAvailableIndexes(items);
+    } finally {
+      setIndexesLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    const onFocus = () => {
+      refreshAdapters();
+      if (ragEnabled) refreshIndexes();
+    };
+    window.addEventListener('focus', onFocus);
+    return () => window.removeEventListener('focus', onFocus);
+  }, [ragEnabled]);
+
+  // refresh KB indexes when toggled ON
+  useEffect(() => {
+    if (ragEnabled) refreshIndexes();
+  }, [ragEnabled]);
+
+  // refresh KB indexes on relevant tab switches (Interact or Knowledge tab)
+  useEffect(() => {
+    if (ragEnabled && (tabIndex === 0 || tabIndex === 3)) {
+      refreshIndexes();
+    }
+  }, [tabIndex, ragEnabled]);
+
+  // gentle polling while RAG is enabled (keeps sizes current after new uploads)
+  useEffect(() => {
+    if (!ragEnabled) return;
+    const id = setInterval(() => refreshIndexes(), 60000); // 60s
+    return () => clearInterval(id);
+  }, [ragEnabled]);  
 
   async function maybeUnloadDynamic() {
     const dyn = lastDynamicRef.current;
@@ -85,6 +146,13 @@ export default function MainTabs({ supports }) {
       }
     }
   }
+
+  const handlePasteSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (pasteLoading) return;
+    if (!pasteId.trim()) return;
+    onConfirmPaste();
+  };  
 
   const handleSelectModel = async (_: any, value: string | null) => {
     if (!value) return;
@@ -103,6 +171,9 @@ export default function MainTabs({ supports }) {
     setModel(value);
     setChats([]);          // clear chat on model change
     setAdapter(null);      // clear adapter on model change
+    setTimeout(() => {
+      document.getElementById('chat-input')?.focus();
+    }, 100);    
   };
 
   const onConfirmPaste = async () => {
@@ -120,6 +191,9 @@ export default function MainTabs({ supports }) {
       setAdapter(null);
       setPasteOpen(false);
       setPasteId("");
+      setTimeout(() => {
+        document.getElementById('chat-input')?.focus();
+      }, 100);      
     } catch (e: any) {
       alert(e?.message || "Failed to load model.");
     } finally {
@@ -201,7 +275,7 @@ export default function MainTabs({ supports }) {
   const showAdapter = model === STATIC_LLAMA; // adapters only for llama
 
   return (
-    <Box sx={{ width: '100vw', height: '100vh', display: 'flex', flexDirection: 'column' }}>
+    <Box sx={{ width: '110vw', height: '100vh', display: 'flex', flexDirection: 'column' }}>
       {/* Fixed top bar */}
       <Box
         sx={{
@@ -239,12 +313,13 @@ export default function MainTabs({ supports }) {
               onChange={(_, value) => setAdapter(value)}
               sx={{ minWidth: 200 }}
               disabled={tabIndex !== 0}
+              startDecorator={adaptersLoading ? <CircularProgress size="sm" /> : null}
             >
               <Option value="">(None)</Option>
               {adapters.map((a) => (
                 <Option key={a} value={a}>{a}</Option>
               ))}
-            </Select>
+            </Select>          
             <Button size="sm" variant="outlined" onClick={() => setModalOpen(true)} disabled={tabIndex !== 0}>
               Fine-Tune
             </Button>
@@ -259,7 +334,7 @@ export default function MainTabs({ supports }) {
         )}
 
         {/* NEW: RAG controls */}
-        <Box sx={{ ml: 'auto', display: 'flex', alignItems: 'center', gap: 1 }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, ml: 2 }}>
           <Switch
             checked={ragEnabled}
             onChange={(e) => setRagEnabled(e.target.checked)}
@@ -279,15 +354,6 @@ export default function MainTabs({ supports }) {
               </Option>
             ))}
           </Select>
-
-          <Button
-            size="sm"
-            variant="plain"
-            onClick={refreshIndexes}
-            disabled={!ragEnabled || tabIndex !== 0}
-          >
-            Refresh
-          </Button>
         </Box>
       </Box>
 
@@ -341,38 +407,49 @@ export default function MainTabs({ supports }) {
       </Box>
 
       {/* Paste HF ID Modal */}
-      <Modal open={pasteOpen} onClose={() => { if (!pasteLoading) setPasteOpen(false); }}>
+      <Modal
+        open={pasteOpen}
+        onClose={() => { if (!pasteLoading) setPasteOpen(false); }}
+        disableAutoFocus
+      >
         <ModalDialog sx={{ minWidth: 520 }}>
           <ModalClose disabled={pasteLoading} />
           <DialogTitle>Load a Hugging Face model (MLX)</DialogTitle>
           <DialogContent>
-            <Stack spacing={1.5}>
-              <Typography level="body-sm">
-                Paste a Hugging Face model ID (e.g., <code>Qwen/Qwen2.5-1.5B-Instruct</code>). We’ll spin up a local MLX worker and route chat to it.
-              </Typography>
-              <Input
-                ref={pasteInputRef}
-                placeholder="owner/model-id"
-                value={pasteId}
-                onChange={(e) => setPasteId(e.target.value)}
-                disabled={pasteLoading}
-              />
-              <Box sx={{ display: 'flex', gap: 1, justifyContent: 'flex-end' }}>
-                <Button
-                  variant="plain"
-                  onClick={() => setPasteOpen(false)}
+            <form onSubmit={handlePasteSubmit}>
+              <Stack spacing={1.5}>
+                <Typography level="body-sm">
+                  Paste a Hugging Face model ID (e.g., <code>Qwen/Qwen2.5-1.5B-Instruct</code>). We’ll spin up a local MLX worker and route chat to it.
+                </Typography>
+                <Input
+                  placeholder="owner/model-id"
+                  value={pasteId}
+                  onChange={(e) => setPasteId(e.target.value)}
                   disabled={pasteLoading}
-                >
-                  Cancel
-                </Button>
-                <Button
-                  onClick={onConfirmPaste}
-                  disabled={!pasteId.trim() || pasteLoading}
-                >
-                  {pasteLoading ? <><CircularProgress size="sm" /> Loading…</> : "Load"}
-                </Button>
-              </Box>
-            </Stack>
+                  slotProps={{
+                    input: {
+                      ref: pasteInputRef,
+                      autoFocus: true,
+                    },
+                  }}
+                />
+                <Box sx={{ display: 'flex', gap: 1, justifyContent: 'flex-end' }}>
+                  <Button
+                    variant="plain"
+                    onClick={() => setPasteOpen(false)}
+                    disabled={pasteLoading}
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    type="submit"
+                    disabled={!pasteId.trim() || pasteLoading}
+                  >
+                    {pasteLoading ? <><CircularProgress size="sm" /> Loading…</> : "Load"}
+                  </Button>
+                </Box>
+              </Stack>
+            </form>
           </DialogContent>
         </ModalDialog>
       </Modal>
