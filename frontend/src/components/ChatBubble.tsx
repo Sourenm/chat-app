@@ -46,6 +46,7 @@ export default function ChatBubble({
     <Markdown
       remarkPlugins={[remarkGfm]}
       components={{
+        // Headings + paragraphs keep Joy Typography
         h1: ({ children }) => (
           <Typography level="title-sm" sx={{ fontWeight: 700, my: 0.5 }}>
             {children}
@@ -75,24 +76,98 @@ export default function ChatBubble({
             {children}
           </Typography>
         ),
+
+        // Links
         a: ({ children, href }) => (
           <a href={href} target="_blank" rel="noreferrer">
             {children}
           </a>
         ),
+
+        // Lists: proper indentation & spacing
+        ul: ({ children }) => (
+          <ul style={{ paddingLeft: '1.2em', margin: '6px 0' }}>{children}</ul>
+        ),
+        ol: ({ children }) => (
+          <ol style={{ paddingLeft: '1.2em', margin: '6px 0' }}>{children}</ol>
+        ),
+        li: ({ children }) => (
+          <li style={{ marginBottom: '4px', lineHeight: 1.6 }}>{children}</li>
+        ),
+
+        // Tables: borders + scroll for wide content
+        table: ({ children }) => (
+          <div style={{ overflowX: 'auto', margin: '8px 0' }}>
+            <table
+              style={{
+                borderCollapse: 'collapse',
+                width: '100%',
+                minWidth: 420, // keep structure when narrow
+              }}
+            >
+              {children}
+            </table>
+          </div>
+        ),
+        img: (props) => (
+          <img {...props} style={{ maxWidth: '100%', height: 'auto' }} />
+        ),        
+        thead: ({ children }) => <thead style={{ background: 'var(--joy-palette-neutral-200)' }}>{children}</thead>,
+        tr: ({ children }) => <tr style={{ borderBottom: '1px solid #ccc' }}>{children}</tr>,
+        th: ({ children }) => (
+          <th
+            style={{
+              border: '1px solid #ccc',
+              padding: '6px 10px',
+              textAlign: 'left',
+              fontWeight: 600,
+              whiteSpace: 'nowrap',
+            }}
+          >
+            {children}
+          </th>
+        ),
+        td: ({ children }) => (
+          <td
+            style={{
+              border: '1px solid #ccc',
+              padding: '6px 10px',
+              textAlign: 'left',
+              verticalAlign: 'top',
+            }}
+          >
+            {children}
+          </td>
+        ),
+
+        // Code blocks: keep Prism, add horizontal scroll; inline code: subtle background
         code({ children, className, ...props }) {
           const match = /language-(\w+)/.exec(className || '');
-          return match ? (
-            <SyntaxHighlighter
+          if (match) {
+            return (
+              <div style={{ overflowX: 'auto', margin: '6px 0' }}>
+                <SyntaxHighlighter
+                  {...props}
+                  PreTag="div"
+                  language={match[1]}
+                  style={oneDark}
+                >
+                  {String(children).replace(/\n$/, '')}
+                </SyntaxHighlighter>
+              </div>
+            );
+          }
+          return (
+            <code
               {...props}
-              PreTag="div"
-              language={match[1]}
-              style={oneDark}
+              className={className}
+              style={{
+                background: 'var(--joy-palette-neutral-200)',
+                padding: '0.1em 0.35em',
+                borderRadius: 6,
+                fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace',
+              }}
             >
-              {String(children).replace(/\n$/, '')}
-            </SyntaxHighlighter>
-          ) : (
-            <code {...props} className={className}>
               {children}
             </code>
           );
@@ -117,34 +192,33 @@ export default function ChatBubble({
     >
       <div
         style={{
-          display: 'flex',
+          /* ⬇︎ make it a normal block container (or flex-column) */
+          display: 'block',
           color: pos === 'bot' ? 'var(--joy-palette-text-primary)' : 'var(--joy-palette-text-tertiary)',
           textAlign: 'left',
           maxWidth: 820,
+          width: '100%',
         }}
         className="chatBubbleContent"
       >
-        {!isThinking ? renderMarkdown(pos === 'bot' ? safeContent : t) : (
-          <div>
-            <p style={{ margin: 0, padding: 0, marginTop: 10, marginBottom: 10 }}>
-              <span id="resultText" />
-            </p>
-            <LinearProgress
-              variant="plain"
-              color="neutral"
-              sx={{ color: '#ddd', width: '60px' }}
-            />
-          </div>
-        )}
+        <div style={{ width: '100%', minWidth: 0 }}>
+          {!isThinking ? renderMarkdown(pos === 'bot' ? safeContent : t) : (
+            <div>
+              <p style={{ margin: 0, padding: 0, marginTop: 10, marginBottom: 10 }}>
+                <span id="resultText" />
+              </p>
+              <LinearProgress variant="plain" color="neutral" sx={{ color: '#ddd', width: '60px' }} />
+            </div>
+          )}
+        </div>
       </div>
+
 
       {Array.isArray(chat?.sources) && chat.sources.length > 0 && (
         <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 8 }}>
           {chat.sources.map((s, idx) => {
             const label = `${s.source || 'source'}${s.page ? ` p.${s.page}` : ''}`;
-            const tooltip = `${label} — score ${s.score.toFixed(
-              3
-            )}\n\n${(s.snippet || '').slice(0, 300)}...`;
+            const tooltip = `${label} — score ${s.score.toFixed(3)}\n\n${(s.snippet || '').slice(0, 300)}...`;
             return (
               <Tooltip key={idx} title={tooltip}>
                 <span

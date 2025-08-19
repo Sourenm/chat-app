@@ -226,3 +226,63 @@ export async function unloadDynamicModel(hfModelId: string) {
   }
   return r.json(); // { status, model }
 }
+
+
+export type VttResponse = {
+  backend_used: string;
+  sampling_rate: number;
+  duration_sec: number;
+  text: string | null;
+  phonemes: string[] | null;
+  phoneme_spans: { phoneme: string; start: number; end: number; }[] | null;
+  weights: string;
+};
+
+export async function generateVTTFile(
+  file: File,
+  backend: string = 'auto',
+  return_phonemes: boolean = true
+): Promise<VttResponse> {
+  const form = new FormData();
+  form.append('backend', backend);
+  form.append('return_phonemes', String(return_phonemes));
+  form.append('audio', file, file.name || 'audio.wav');
+
+  const res = await fetch('http://localhost:8000/generate/vtt', {
+    method: 'POST',
+    body: form,
+  });
+
+  if (!res.ok) {
+    throw new Error(`VTT failed (${res.status})`);
+  }
+  return res.json();
+}
+
+export type WhisperVttResponse = {
+  text: string | null;
+  // optional: include anything else your backend returns (segments, language, model, etc.)
+  // segments?: { text: string; start: number; end: number }[];
+  // model?: string;
+  // language?: string;
+};
+
+export async function generateVTSWhisperFile(
+  file: File,
+  model: string = 'small',
+  language?: string
+): Promise<WhisperVttResponse> {
+  const form = new FormData();
+  form.append('whisper_model', model);
+  if (language) form.append('whisper_language', language);
+  form.append('audio', file, file.name || 'audio.wav');
+
+  const res = await fetch('http://localhost:8000/vts_whisper', {   // <-- your new backend route
+    method: 'POST',
+    body: form,
+  });
+  if (!res.ok) {
+    throw new Error(`VTS Whisper failed (${res.status})`);
+  }
+  return res.json();
+}

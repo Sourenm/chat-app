@@ -23,7 +23,7 @@ import { useState, useEffect, useRef } from 'react';
 import FineTuneModal from './FineTuneModal';
 import ChatPage from './ChatPage';
 import DiffusionPage from './DiffusionPage';
-import TTSPage from './TTSPage';
+import Voice from './Voice';
 import KnowledgePage from './KnowledgePage';
 import StoryPage from './StoryPage';
 import { getAdapters, sendToBackend, ragQuery, ragGetIndexes } from '../lib/api';
@@ -275,7 +275,18 @@ export default function MainTabs({ supports }) {
   const showAdapter = model === STATIC_LLAMA; // adapters only for llama
 
   return (
-    <Box sx={{ width: '110vw', height: '100vh', display: 'flex', flexDirection: 'column' }}>
+    <Box
+      sx={{
+        width: '100vw',           // ✅ no more overshoot
+        maxWidth: '100%',
+        height: '100dvh',         // more robust on some browsers
+        display: 'flex',
+        flexDirection: 'column',
+        overflowX: 'hidden',      // ✅ prevent horizontal scrollbars
+        boxSizing: 'border-box',
+      }}
+    >
+
       {/* Fixed top bar */}
       <Box
         sx={{
@@ -363,7 +374,7 @@ export default function MainTabs({ supports }) {
           <TabList>
             <Tab>Interact</Tab>
             <Tab>Diffusion</Tab>
-            <Tab>TTS</Tab>
+            <Tab>Voice</Tab>
             <Tab>Knowledge</Tab>
             <Tab>Story</Tab>
           </TabList>
@@ -393,7 +404,7 @@ export default function MainTabs({ supports }) {
           </TabPanel>
 
           <TabPanel value={2} sx={{ height: '100%', overflow: 'auto' }}>
-            <TTSPage />
+            <Voice />
           </TabPanel>
 
           <TabPanel value={3} sx={{ height: '100%', overflow: 'auto' }}>
