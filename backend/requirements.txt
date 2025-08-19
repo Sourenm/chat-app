@@ -15,3 +15,7 @@ sentence-transformers
 pypdf
 pandas
 langgraph
+g2p-en
+faster_whisper
+librosa
+soundfile

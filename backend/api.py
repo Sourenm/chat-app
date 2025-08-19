@@ -4,7 +4,6 @@ import os
 import json
 import sys
 import httpx
-import time
 import signal
 from typing import Optional
 from fastapi import FastAPI, Request, HTTPException
@@ -17,6 +16,7 @@ from fastapi.responses import FileResponse
 import tempfile
 import uuid
 from tts_wrapper import generate_audio
+from vts import vts_router
 from story_orchestrator import app as story_graph_app
 from dynamic_registry import register as dyn_register, get as dyn_get, remove as dyn_remove
 
@@ -38,6 +38,7 @@ except Exception:
 
 app = FastAPI()
 app.include_router(rag_router)
+app.include_router(vts_router)
 
 model_worker_procs = []
 
