@@ -5,6 +5,9 @@ It now includes:
 - **Retrieval-Augmented Generation (RAG)** for grounded answers from your own documents.
 - **LangGraph-based Multi-Model Orchestration** for complex, multimodal workflows.
 - **On-Demand MLX Models (NEW)** — paste **any Hugging Face model ID** (text-generation) in the UI and the app spins up a dedicated **MLX worker** for it on the fly (downloads if needed, health-checked, isolated port, auto-routed). Switching back to a static model will gracefully **unload** the dynamic worker.
+- **Voice-to-Text (NEW)** — record or upload an audio file and the app provides:
+  - **Whisper-based transcription**: full coherent text output with punctuation and timestamps using the `faster-whisper` backend.
+  - **Manual phoneme extraction**: a custom MFCC → BiLSTM → CTC pipeline that decodes speech into phoneme sequences with per-phoneme timestamps, useful for deeper speech analysis or alignment.
 
 ---
 
@@ -24,6 +27,21 @@ It now includes:
 
 ### 🔈 Text-To-Speech
 - Convert prompts to speech with local Tacotron2 + vocoder
+
+### 🎤 Voice-To-Text (NEW)
+- Record audio directly in the app or upload `.wav`, `.mp3`, or `.m4a` files
+- Two complementary backends are supported:
+  - **Whisper transcription** (via `faster-whisper`):  
+    - Produces full coherent text with punctuation and natural phrasing  
+    - Returns per-segment timestamps for detailed alignment  
+    - Configurable Whisper model size (`tiny`, `base`, `small`, `medium`)
+  - **Custom Phoneme Extraction** (MFCC → BiLSTM → CTC):  
+    - Extracts low-level phoneme sequences from speech  
+    - Provides per-phoneme timestamps at ~10 ms resolution  
+    - Useful for detailed speech analysis and alignment tasks
+- Both transcription and phoneme outputs are shown in the **Voice tab** side-by-side:
+  - “Text” box → Whisper transcription (cleaned of filler hyphens)
+  - “Phonemes” box → decoded sequence from the CTC pipeline with timestamps
 
 ### 📚 Knowledge Base (RAG)
 - Ingest `.pdf`, `.csv`, `.txt`, `.md`/`.markdown` files into a **local FAISS vector store**
@@ -69,14 +87,16 @@ This project is fully optimized for **Apple Silicon** with native MPS-backed inf
 
 ### Supported Models
 
-This app supports text-only, multimodal (image + text), file + text, and image generation (diffusion) inference:
+This app supports text-only, multimodal (image + text), file + text, image generation (diffusion), **speech-to-text**, and **text-to-speech** inference:
 
-| Model                                             | Type         | Notes                                                                                 |
-|--------------------------------------------------|--------------|---------------------------------------------------------------------------------------|
-| **meta-llama/Llama-3.2-1B-Instruct**             | Text-only    | Lightweight, fast local inference (static worker)                                     |
-| **mlx-community/Qwen2-VL-2B**                    | Multimodal   | Image + text joint reasoning (static worker)                                          |
-| **Stable Diffusion XL (via MLX)**                | Diffusion    | Text-to-image and image-to-image prompts                                              |
-| **Any HF text-generation model via MLX (NEW)**   | Text-only    | **Paste a Hugging Face model ID** in the UI to spin up a dedicated MLX worker on demand|
+| Model / Pipeline                                   | Type          | Notes                                                                                 |
+|----------------------------------------------------|---------------|---------------------------------------------------------------------------------------|
+| **meta-llama/Llama-3.2-1B-Instruct**               | Text-only     | Lightweight, fast local inference (static worker)                                     |
+| **mlx-community/Qwen2-VL-2B**                      | Multimodal    | Image + text joint reasoning (static worker)                                          |
+| **Stable Diffusion XL (via MLX)**                  | Diffusion     | Text-to-image and image-to-image prompts                                              |
+| **Any HF text-generation model via MLX (NEW)**     | Text-only     | **Paste a Hugging Face model ID** in the UI to spin up a dedicated MLX worker on demand|
+| **faster-whisper (NEW)**                           | Voice→Text    | High-quality speech transcription with punctuation and per-segment timestamps         |
+| **BiLSTM + CTC Phoneme Extractor (NEW)**           | Voice→Phoneme | Custom MFCC → BiLSTM → CTC pipeline for phoneme-level decoding with ~10 ms resolution |
 
 **On-Demand MLX Models (examples that work well):**
 - `mlx-community/TinyLlama-1.1B-Chat-v1.0-4bit`
@@ -84,6 +104,8 @@ This app supports text-only, multimodal (image + text), file + text, and image g
 - `mlx-community/gemma-2-2b-it-4bit`
 
 > **How it works:** Paste a valid **text-generation** (causal LM) HF ID → the backend launches an isolated MLX worker (downloads if needed), health-checks it, and routes chat to it automatically. Switching back to a static model **unloads** the dynamic worker. *(Multimodal remains Qwen-VL.)*
+
+---
 
 ### ✅ Frontend (Electron + React)
 - Built with **Vite**, **TypeScript**, **MUI + Joy UI**
@@ -93,7 +115,9 @@ This app supports text-only, multimodal (image + text), file + text, and image g
 - **Knowledge Base (RAG) tab** to upload documents, enable optional legal mode for PDFs, build local indexes, and delete entire indexes + their uploaded files
 - **Diffusion** tab for generating and saving images  
   - Supports **text-to-image** and **image-to-image** workflows
-- **TTS** tab for generating speech from text
+- **Voice tab (NEW)**:  
+  - **Text-to-Speech** — generate audio from text  
+  - **Voice-to-Text** — record or upload audio; get **Whisper transcription** + **phoneme sequence** side-by-side
 - Fine-tuning UI for the **LLaMA 3.2 1B** model with custom hyperparameters
 - **Story** tab for orchestrating multi-model AI workflows:  
   - Upload an optional reference image
@@ -107,7 +131,12 @@ This app supports text-only, multimodal (image + text), file + text, and image g
   - `/diffusion/generate`
   - `/rag/*` endpoints for retrieval
   - `/orchestrate_story` endpoint for LangGraph storytelling pipeline
+  - **Voice endpoints (NEW):**
+    - `/generate/vtt` — phoneme extraction (BiLSTM + CTC)
+    - `/vts_whisper` — Whisper-based full transcription
   - **(NEW)** `/mlx/load` & `/mlx/unload` to manage on-demand MLX workers
+
+---
 
 ### ✅ Backend (FastAPI + Hugging Face + MLX + LangGraph)
 - **FastAPI** server with CORS, hosting chat, diffusion, TTS, fine-tuning, **RAG**, and orchestration APIs
@@ -122,6 +151,9 @@ This app supports text-only, multimodal (image + text), file + text, and image g
 - Text & multimodal served via **`transformers.pipeline`** (static path) on **MPS (Apple Silicon)**, CUDA, or CPU; **dynamic** text models run via **`mlx_lm`** (MLX)
 - Diffusion runs locally with **MLX Stable Diffusion XL** via subprocess (`txt2image.py`)
 - TTS runs locally using `tts_models/en/ljspeech/tacotron2-DDC`
+- **Voice-to-Text (NEW)**:
+  - `/generate/vtt` → runs MFCC feature extraction + BiLSTM + CTC decoding for **phoneme-level transcription**
+  - `/vts_whisper` → runs **faster-whisper** for full-text transcription with punctuation and timestamps
 - **RAG**: local **FAISS** vector store with JSON metadata, token-aware chunking (~850 tokens, 120 overlap), and **MiniLM-L6** embeddings
 - **LangGraph orchestration**:
   - Connects Qwen2-VL, optional RAG, optional LoRA-fine-tuned LLaMA, SDXL, and TTS into a single workflow
@@ -132,22 +164,29 @@ This app supports text-only, multimodal (image + text), file + text, and image g
 ### Diffusion
 #### Using a Reference Image
 <div align="center">
-  <img src="./gifs/image2image_5.gif" alt="Image2Image Diffusion" width="80%" />
+  <img src="./gifs/image2image_6.gif" alt="Image2Image Diffusion" width="80%" />
 </div>
 
 #### Using Prompt Only
 <div align="center">
-  <img src="./gifs/text2image_4.gif" alt="Text2Image Diffusion" width="80%" />
+  <img src="./gifs/text2image_5.gif" alt="Text2Image Diffusion" width="80%" />
 </div>
+
+## Voice
 
 ### Text to Speech
 <div align="center">
-  <img src="./gifs/TTS_3.gif" alt="Text to Speech" width="80%" />
+  <img src="./gifs/TTS_4.gif" alt="Text to Speech" width="80%" />
+</div>
+
+### Voice to Text
+<div align="center">
+  <img src="./gifs/VTS.gif" alt="Text to Speech" width="80%" />
 </div>
 
 ### Multimodal Inference
 <div align="center">
-  <img src="./gifs/multimodal_6.gif" alt="Multimodal Inference" width="80%" />
+  <img src="./gifs/multimodal_7.gif" alt="Multimodal Inference" width="80%" />
 </div>
 
 ### 🔌 On-Demand MLX Models (Paste HF ID) — NEW
@@ -159,7 +198,7 @@ Load **any Hugging Face text-generation model** at runtime:
 4. Switching back to a static model (LLaMA or Qwen-VL) gracefully **unloads** the dynamic worker.
 
 <div align="center">
-  <img src="./gifs/mlx_worker.gif" alt="On-Demand MLX Models" width="80%" />
+  <img src="./gifs/mlx_worker_2.gif" alt="On-Demand MLX Models" width="80%" />
 </div>
 
 > Works for text-only causal LMs on Apple Silicon (MLX). Private/gated models require `HUGGING_FACE_HUB_TOKEN`.
@@ -169,7 +208,7 @@ Load **any Hugging Face text-generation model** at runtime:
 Attach `.pdf` or `.csv` files via the 📁 button.
 
 <div align="center">
-  <img src="./gifs/file_attachment_5.gif" alt="File Attachment" width="80%" />
+  <img src="./gifs/file_attachment_6.gif" alt="File Attachment" width="80%" />
 </div>
 
 
@@ -190,7 +229,7 @@ You can now **fine-tune the LLaMA model** using custom JSON datasets via the UI:
 > This runs `finetune_llama.py` in the backend using Hugging Face Transformers + PEFT (LoRA) + your dataset.
 
 <div align="center">
-  <img src="./gifs/fine_tuning_4.gif" alt="Fine-tuning LLaMA" width="80%" />
+  <img src="./gifs/fine_tuning_5.gif" alt="Fine-tuning LLaMA" width="80%" />
 </div>
 
 ### Knowledge Base (RAG)
@@ -198,7 +237,7 @@ You can now **fine-tune the LLaMA model** using custom JSON datasets via the UI:
 The new **Knowledge Base** tab allows you to upload `.pdf`, `.csv`, `.txt`, and `.md` files, with optional legal mode for PDFs to resolve clause references and relative dates, index them locally using FAISS, and query them for grounded, citation-backed answers. You can also delete entire indexes along with their uploaded files.
 
 <div align="center">
-  <img src="./gifs/rag_3.gif" alt="Knowledge Base (RAG)" width="80%" />
+  <img src="./gifs/rag_4.gif" alt="Knowledge Base (RAG)" width="80%" />
 </div>
 
 ### 🎭 Storytelling Orchestration (NEW — LangGraph)
@@ -227,7 +266,7 @@ The result includes:
 - Downloadable audio narration
 
 <div align="center">
-  <img src="./gifs/story_orchestration.gif" alt="Storytelling Orchestration" width="80%" />
+  <img src="./gifs/story_orchestration_2.gif" alt="Storytelling Orchestration" width="80%" />
 </div>
 
 ---
@@ -245,6 +284,7 @@ chat-app/
 │   ├── diffusion_worker.py
 │   ├── finetune_llama.py
 │   ├── tts_wrapper.py
+│   ├── vts.py
 │   ├── dynamic_mlx_worker.py
 │   ├── dynamic_registry.py
 │   ├── rag_router.py                # RAG API endpoints
@@ -267,7 +307,9 @@ chat-app/
     │   │   ├── ChatPage.tsx
     │   │   ├── ChatSubmit.tsx    
     │   │   ├── MainTabs.tsx
+    │   │   ├── Voice.tsx
     │   │   ├── TTSPage.tsx
+    │   │   ├── VTS.tsx
     │   │   └── DiffusionPage.tsx
     │   │   └── FineTuneModal.tsx    
     │   │   └── StoryPage.tsx    
@@ -304,9 +346,10 @@ To use the Diffusion tab for image generation:
  ```
  git clone https://github.com/ml-explore/mlx-examples.git
  ```
- - Open diffusion_worker.py and update this line to match your local path:
+ - Open diffusion_worker.py and update these lines to match your local path:
  ```
  TXT2IMG_SCRIPT = "/absolute/path/to/mlx-examples/stable_diffusion/txt2image.py"
+ IMG2IMG_SCRIPT = "/absolute/path/to/mlx-examples/stable_diffusion/image2image.py"
  ```
 
 Then launch the API with:
@@ -345,7 +388,7 @@ npm run build
 ## 🖥️ UI
 
 - A model selector dropdown at the top allows switching between available models  
-  (disabled in Diffusion, Knowledge Base, and Story tabs when not relevant).
+  (disabled in Diffusion, Knowledge Base, Voice, and Story tabs when not relevant).
 - **Paste HF Model ID… (NEW):** from the model selector, choose **“Paste HF Model ID…”** to enter any Hugging Face **text-generation** repo (e.g., `mlx-community/TinyLlama-1.1B-Chat-v1.0-4bit`).  
   - The backend launches a dedicated **MLX worker** for that model (downloads if needed) and routes chats to it automatically.  
   - Switching back to a static model (LLaMA or Qwen-VL) **unloads** the dynamic worker.  
@@ -368,8 +411,12 @@ npm run build
     - Generate images from text prompts (**text-to-image**)
     - Optionally guide generation with a reference image (**image-to-image**)
     - Save generated images as PNG
-  - `TTS` tab  
-    - Generate speech audio from text
+  - `Voice` tab (**new**)  
+    - **Text-to-Speech**: generate natural-sounding audio from text using Tacotron2 + vocoder  
+    - **Voice-to-Text**: record audio directly in the app or upload a file  
+      - **Whisper transcription**: produces coherent text with punctuation and per-segment timestamps  
+      - **Phoneme extraction (BiLSTM+CTC)**: decodes phoneme sequences with timestamps for analysis  
+    - Outputs are displayed in side-by-side boxes: “Text” and “Phonemes”
   - `Story` tab (**new**)  
     - Upload an optional reference image
     - Provide narrative tone/style guidance
@@ -569,6 +616,10 @@ The frontend will:
 - Multimodal prompts are parsed safely: base64 image data is extracted and excluded from tokenized text
 - Prompts are truncated before formatting to respect model limits (32768 tokens)
 - Backend routes are model-aware and extract text + image cleanly
+- **Voice support (NEW)**:
+  - `/generate/vtt`: extracts **phoneme sequences** from audio using MFCC → BiLSTM → CTC, with ~10 ms timestamps  
+  - `/vts_whisper`: transcribes audio to **full coherent text** with punctuation and per-segment timestamps using **faster-whisper**
+  - Both routes can be called together from the UI’s Voice tab, returning parallel **Text** and **Phonemes** outputs
 - **RAG support**:
   - Local FAISS vector store
   - SentenceTransformers embeddings (`all-MiniLM-L6-v2`)
@@ -577,7 +628,7 @@ The frontend will:
 - **LangGraph orchestration**:
   - Sequentially calls Qwen2-VL → optional RAG → optional LoRA fine-tuned LLaMA → SDXL → TTS
   - Manages intermediate data passing between models
-  - Enforces CLIP token limits for SDXL prompts to prevent runtime errors  
+  - Enforces CLIP token limits for SDXL prompts to prevent runtime errors
 
 **Python packages:**
 - `fastapi`
@@ -597,6 +648,10 @@ The frontend will:
 - `pypdf`
 - `pandas`
 - `langgraph`
+- `g2p-en`
+- `faster_whisper`
+- `librosa`
+- `soundfile`
 
 ---
 
